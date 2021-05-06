@@ -1,10 +1,10 @@
 import { TaskInitArgs, TaskMemory } from "types";
-import { RunResult, RunResultType } from "./AbstractTask";
-import { DepositEnergy } from "./DepositEnergy";
-import { HarvestAndLoadTask } from "./HarvestAndLoadTask";
-import { ManagerRoomTask } from "./ManagerRoomTask";
-import { PersistentTask } from "./PersistentTask";
-import { PickupResourceTask } from "./PickupResource";
+import { RunResult, RunResultType } from "../AbstractTask";
+import { DepositEnergy } from "../DepositEnergy";
+import { HarvestAndLoadTask } from "../HarvestAndLoadTask";
+import { RoomManager } from "../RoomManager";
+import { PersistentTask } from "../PersistentTask";
+import { PickupResourceTask } from "../PickupResource";
 
 interface MinimalEnergyWorkerMemory extends TaskMemory {
     actorId: Id<Creep>;
@@ -15,7 +15,7 @@ interface MinimalEnergyWorkerMemory extends TaskMemory {
 interface MinimalEnergyWorkerArgs extends TaskInitArgs {
     actor: Creep;
     source: Source;
-    room: ManagerRoomTask;
+    room: RoomManager;
 }
 
 @PersistentTask.register
@@ -23,7 +23,7 @@ export class MinimalEnergyWorker extends PersistentTask<MinimalEnergyWorkerMemor
 
     private actor?: Creep;
     private source: Source;
-    private room: ManagerRoomTask;
+    private room: RoomManager;
 
     initMemory(args: MinimalEnergyWorkerArgs): MinimalEnergyWorkerMemory {
         return {

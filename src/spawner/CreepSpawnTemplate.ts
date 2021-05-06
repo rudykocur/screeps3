@@ -1,4 +1,4 @@
-import { ManagerRoomTask } from "tasks/ManagerRoomTask";
+import { RoomManager } from "tasks/RoomManager";
 import { build } from "utils/BodyBuilder"
 
 export interface CreepSpawnTemplate {
@@ -7,7 +7,7 @@ export interface CreepSpawnTemplate {
 }
 
 export class GenericCreepTemplate implements CreepSpawnTemplate {
-    constructor(private room: ManagerRoomTask) {}
+    constructor(private room: RoomManager) {}
 
     getBodyParts(): BodyPartConstant[] {
         return [MOVE, MOVE, CARRY, WORK];
@@ -24,7 +24,7 @@ export class GenericCreepTemplate implements CreepSpawnTemplate {
 export class MinerCreepTemplate implements CreepSpawnTemplate {
     private maxBudget = 800 // 6 * WORK + 3 * MOVE = 750 energy
 
-    constructor(private room: ManagerRoomTask) {}
+    constructor(private room: RoomManager) {}
 
     getBodyParts(): BodyPartConstant[] {
         return build([MOVE, WORK, WORK], Math.min(this.room.getMaxSpawnPower(), this.maxBudget));
@@ -34,6 +34,21 @@ export class MinerCreepTemplate implements CreepSpawnTemplate {
         return {
             room: this.room.name,
             role: "miner",
+        };
+    }
+}
+
+export class BuilderCreepTemplate implements CreepSpawnTemplate {
+    constructor(private room: RoomManager) {}
+
+    getBodyParts(): BodyPartConstant[] {
+        return build([MOVE, CARRY, WORK], this.room.getMaxSpawnPower());
+    }
+
+    getMemory(): CreepMemory {
+        return {
+            room: this.room.name,
+            role: "builder",
         };
     }
 }

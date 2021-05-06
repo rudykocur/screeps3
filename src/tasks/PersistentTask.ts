@@ -31,6 +31,18 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
         this.childTasks = this.childTasks.filter(task => task.getTaskId() === taskId)
     }
 
+    findTask<T extends PersistentTask<TaskMemory, TaskInitArgs>>(
+        clazz: TaskType<T>
+    ): T | null {
+        const tasks = this.findTasks(clazz)
+
+        if(tasks.length > 0) {
+            return tasks[0]
+        }
+
+        return null
+    }
+
     findTasks<T extends PersistentTask<TaskMemory, TaskInitArgs>>(
         clazz: TaskType<T>
     ): T[] {
@@ -100,11 +112,11 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
         })
     }
 
-    scheduleBackgroundTask<M extends TaskMemory, IA extends TaskInitArgs>(
-        taskFactory: TaskType<PersistentTask<M, IA>>,
+    scheduleBackgroundTask<M extends TaskMemory, IA extends TaskInitArgs, T extends PersistentTask<M, IA>>(
+        taskFactory: TaskType<T>,
         args: IA,
-    ) {
-        this.taskManager.scheduleTask(taskFactory, args, {
+    ): T {
+        return this.taskManager.scheduleTask(taskFactory, args, {
             blocking: false,
             parent: this,
         })

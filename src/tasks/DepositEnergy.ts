@@ -1,6 +1,6 @@
 import { RunResult, RunResultType } from "./AbstractTask";
 import { DropResourceTask } from "./DropResource";
-import { ManagerRoomTask } from "./ManagerRoomTask";
+import { RoomManager } from "./RoomManager";
 import { PersistentTask } from "./PersistentTask";
 import { TrasferResourceTask } from "./TransferResourceTask";
 
@@ -11,14 +11,14 @@ interface DepositEnergyMemory {
 
 interface DepositEnergyArgs {
     actor: Creep;
-    room: ManagerRoomTask;
+    room: RoomManager;
 }
 
 @PersistentTask.register
 export class DepositEnergy extends PersistentTask<DepositEnergyMemory, DepositEnergyArgs> {
 
     private actor?: Creep | null;
-    private room: ManagerRoomTask;
+    private room: RoomManager;
 
     initMemory(args: DepositEnergyArgs): DepositEnergyMemory {
         return {

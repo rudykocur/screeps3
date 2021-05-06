@@ -1,9 +1,9 @@
 import { TaskManager } from "TaskManager";
 import { counter } from "GlobalCounter";
-import { ManagerRoomTask } from "tasks/ManagerRoomTask";
+import { RoomManager } from "tasks/RoomManager";
 
 export class GameManager {
-    private rooms: ManagerRoomTask[];
+    private rooms: RoomManager[];
     private taskManager: TaskManager = new TaskManager();
 
     constructor() {
@@ -20,7 +20,7 @@ export class GameManager {
         this.taskManager.loadPersistedTasks()
         this.taskManager.preInit()
 
-        const tasks = this.taskManager.findTasks(ManagerRoomTask);
+        const tasks = this.taskManager.findTasks(RoomManager);
 
         Object.values(Game.rooms).forEach(room => {
             if(room.find(FIND_MY_SPAWNS).length === 0) {
@@ -31,7 +31,7 @@ export class GameManager {
             const roomTask = tasks.find(task => task.name === room.name);
 
             if(!roomTask) {
-                this.taskManager.scheduleTask(ManagerRoomTask, {
+                this.taskManager.scheduleTask(RoomManager, {
                     room: room
                 })
             }
@@ -57,7 +57,7 @@ export class GameManager {
         return this.rooms.find(mgr => mgr.name === roomName)
     }
 
-    registerRoomManager(manager: ManagerRoomTask) {
+    registerRoomManager(manager: RoomManager) {
         this.rooms.push(manager)
     }
 }

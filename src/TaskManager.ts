@@ -144,11 +144,11 @@ export class TaskManager {
         this.memory[task.getTaskId()].sleepUntil = Game.time + ticks;
     }
 
-    scheduleTask<M extends TaskMemory, IA extends TaskInitArgs>(
-        taskFactory: TaskType<PersistentTask<M, IA>>,
+    scheduleTask<M extends TaskMemory, IA extends TaskInitArgs, T extends PersistentTask<M, IA>>(
+        taskFactory: TaskType<T>,
         args: IA,
         options: ScheduleTaskOptions = {}
-    ) {
+    ): T {
         let task = new taskFactory(this, undefined);
         task.create(args);
 
@@ -175,6 +175,8 @@ export class TaskManager {
         this.schedule(task);
 
         console.log("Scheduled task", task);
+
+        return task;
     }
 
     private schedule(task: GenericTask) {

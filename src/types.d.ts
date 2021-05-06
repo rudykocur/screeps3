@@ -1,5 +1,6 @@
 // example declaration file - remove these and add your own custom typings
 
+import { CreepRole } from "./constants";
 import { GameManager } from "GameManager";
 import { TaskManager } from "TaskManager";
 import { AbstractTask } from "tasks/AbstractTask";
@@ -30,13 +31,17 @@ interface RoomPositionJson {
 
 type StructureWithEnergyStorage = StructureSpawn | StructureExtension
 
+interface TaskWithActor {
+    getActorId(): Id<Creep> | undefined
+}
+
 declare global {
     interface Memory {
         tasks?: Record<string, TaskRuntimeData>
     }
 
     interface CreepMemory {
-        role: string
+        role: CreepRole
         room?: string
     }
 

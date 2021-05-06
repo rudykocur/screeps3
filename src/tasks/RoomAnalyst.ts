@@ -1,5 +1,5 @@
 import { RunResultType } from "./AbstractTask";
-import { ManagerRoomTask } from "./ManagerRoomTask";
+import { RoomManager } from "./RoomManager";
 import { PersistentTask } from "./PersistentTask";
 import { getPositionsAround } from "../utils/MapUtils"
 import { packPos, unpackPos } from "../utils/packrat"
@@ -10,6 +10,7 @@ interface RoomAnalystMemory {
     miningSites?: MiningSiteMemory[]
     sources?: Id<Source>[]
     safeSources?: Id<Source>[]
+    constructionSites?: Id<ConstructionSite>[]
 }
 
 interface MiningSiteMemory {
@@ -19,7 +20,7 @@ interface MiningSiteMemory {
 }
 
 interface RoomAnalystArgs {
-    room: ManagerRoomTask
+    room: RoomManager
 }
 
 interface MiningSite {
@@ -35,6 +36,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     private miningSites: MiningSite[]
     private sources: Source[]
     private safeSources: Source[]
+    private constructionSites: ConstructionSite[]
 
     initMemory(args: RoomAnalystArgs): RoomAnalystMemory {
         return {
@@ -64,6 +66,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             ?.map(source => Game.getObjectById(source))
             ?.filter(notEmpty) || []
 
+        this.constructionSites = this.memory.constructionSites
+            ?.map(siteId => Game.getObjectById(siteId))
+            ?.filter(notEmpty) || []
+
     }
 
     doRun(): RunResultType {
@@ -71,6 +77,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
         this.analyzeSources()
         this.analyzeMiningSites()
+        this.analyzeConstructionSites()
 
         this.sleep(15)
     }
@@ -98,7 +105,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
                     if(item.terrain === "wall") {
                         return false
                     }
-                    if(item.constructionSite) {
+                    if(item.constructionSite && item.constructionSite.structureType !== STRUCTURE_CONTAINER) {
                         return false
                     }
                 }
@@ -137,6 +144,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         })
     }
 
+    analyzeConstructionSites() {
+        this.memory.constructionSites = this.room.find(FIND_CONSTRUCTION_SITES).map(site => site.id)
+    }
+
     doVisualize() {
         for(const site of this.miningSites) {
             this.room.visual.circle(site.containerPos)
@@ -147,6 +158,18 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
                 fill: "green"
             })
         }
+    }
+
+    getMiningSites() {
+        return this.miningSites
+    }
+
+    getConstructionSites() {
+        return this.constructionSites
+    }
+
+    getSafeSources() {
+        return this.safeSources
     }
 
     toString() {

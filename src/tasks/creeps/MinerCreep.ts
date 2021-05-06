@@ -1,24 +1,24 @@
-import { RunResult, RunResultType } from "./AbstractTask";
-import { MoveTask } from "./MoveTask";
-import { PersistentTask } from "./PersistentTask";
+import { RunResult, RunResultType } from "../AbstractTask";
+import { MoveTask } from "../MoveTask";
+import { PersistentTask } from "../PersistentTask";
 
-interface MinerTaskMemory {
+interface MinerCreepMemory {
     actorId: Id<Creep>
     sourceId: Id<Source>,
     mining?: boolean
 }
 
-interface MinerTaskArgs {
+interface MinerCreepArgs {
     actor: Creep;
     source: Source;
 }
 
 @PersistentTask.register
-export class MinerTask extends PersistentTask<MinerTaskMemory, MinerTaskArgs> {
+export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs> {
     private actor?: Creep | null;
     private source: Source;
 
-    initMemory(args: MinerTaskArgs): MinerTaskMemory {
+    initMemory(args: MinerCreepArgs): MinerCreepMemory {
         return {
             actorId: args.actor.id,
             sourceId: args.source.id,
@@ -66,6 +66,6 @@ export class MinerTask extends PersistentTask<MinerTaskMemory, MinerTaskArgs> {
     }
 
     toString() {
-        return `[MinerTask actor=${this.actor} souce=${this.source}]`
+        return `[MinerCreep actor=${this.actor} souce=${this.source}]`
     }
 }
