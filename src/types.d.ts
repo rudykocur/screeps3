@@ -1,20 +1,46 @@
 // example declaration file - remove these and add your own custom typings
 
-// memory extension samples
-interface CreepMemory {
-  role: string;
-  room: string;
-  working: boolean;
+import { GameManager } from "GameManager";
+import { TaskManager } from "TaskManager";
+import { AbstractTask } from "tasks/AbstractTask";
+
+interface TaskMemory {}
+
+interface TaskInitArgs {}
+
+interface TaskRuntimeData {
+    clazz: string
+    parentTask?: string
+    subTasks: string[]
+    taskId: string
+    data: TaskMemory
+    suspended?: boolean
+    sleepUntil?: number
 }
 
-interface Memory {
-  uuid: number;
-  log: any;
+export interface Type<T> extends Function { new (...args: any[]): T; }
+
+export interface TaskType<T> extends Function { new (taskManager: TaskManager, taskId: string | undefined): T; }
+
+interface RoomPositionJson {
+    x: number;
+    y: number;
+    roomName: string;
 }
 
-// `global` extension samples
-declare namespace NodeJS {
-  interface Global {
-    log: any;
-  }
+type StructureWithEnergyStorage = StructureSpawn | StructureExtension
+
+declare global {
+    interface Memory {
+        tasks?: Record<string, TaskRuntimeData>
+    }
+
+    interface CreepMemory {
+        role: string
+        room?: string
+    }
+
+    interface Game {
+        manager: GameManager
+    }
 }
