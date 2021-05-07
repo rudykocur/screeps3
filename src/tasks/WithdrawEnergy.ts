@@ -1,3 +1,4 @@
+import { TaskWithActor } from "TaskManager";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { LoadEnergyTask } from "./LoadEnergyTask";
 import { PersistentTask } from "./PersistentTask";
@@ -16,7 +17,7 @@ interface WithdrawEnergyArgs {
 }
 
 @PersistentTask.register
-export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, WithdrawEnergyArgs> {
+export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, WithdrawEnergyArgs> implements TaskWithActor {
 
     private actor?: Creep | null
     private room?: RoomManager | null
@@ -57,6 +58,10 @@ export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, Withdra
                 container: target
             })
         }
+    }
+
+    getActorId() {
+        return this.actor?.id
     }
 
     toString() {

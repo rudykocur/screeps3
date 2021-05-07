@@ -8,10 +8,6 @@ export interface TaskWithActor {
 
 export type GenericTask = PersistentTask<TaskMemory, TaskInitArgs> | (PersistentTask<TaskMemory, TaskInitArgs> & TaskWithActor)
 
-export function isTaskWithActor(task: GenericTask): task is GenericTask {
-    return 'getActorId' in task
-}
-
 interface ScheduleTaskOptions {
     blocking?: boolean;
     parent?: GenericTask;

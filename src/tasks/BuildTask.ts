@@ -1,3 +1,4 @@
+import { TaskWithActor } from "TaskManager";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { MoveTask } from "./MoveTask";
 import { PersistentTask } from "./PersistentTask";
@@ -13,7 +14,7 @@ interface BuildTaskArgs {
 }
 
 @PersistentTask.register
-export class BuildTask extends PersistentTask<BuildTaskMemory, BuildTaskArgs> {
+export class BuildTask extends PersistentTask<BuildTaskMemory, BuildTaskArgs> implements TaskWithActor {
 
     private actor?: Creep | null
     private site?: ConstructionSite | null
@@ -50,6 +51,10 @@ export class BuildTask extends PersistentTask<BuildTaskMemory, BuildTaskArgs> {
         else {
             this.actor.build(this.site)
         }
+    }
+
+    getActorId() {
+        return this.actor?.id
     }
 
     toString() {
