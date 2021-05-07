@@ -21,14 +21,16 @@ export class Spawner {
             const template = this.spawnQueue.shift()
 
             if(freeSpawner && template) {
-                const creepName = `${this.roomName}-${freeSpawner.name}-${Game.time}`;
+                const memory = template.getMemory()
+
+                const creepName = `${this.roomName}-${freeSpawner.name}-${memory.role}-${Game.time}`;
 
                 const result = freeSpawner.spawnCreep(template.getBodyParts(), creepName, {
                     memory: template.getMemory()
                 })
 
                 if(result === OK) {
-                    console.log(this, 'spawned creep', creepName, 'with memory', template.getMemory())
+                    console.log(this, 'spawned creep', creepName)
                 }
 
                 if(result == ERR_NOT_ENOUGH_ENERGY) {

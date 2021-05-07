@@ -14,6 +14,7 @@ interface RoomBuilderArgs {
 @PersistentTask.register
 export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderArgs> {
     private roomAnalyst?: RoomAnalyst
+    private room: Room
 
     initMemory(args: RoomBuilderArgs): RoomBuilderMemory {
         return {
@@ -21,7 +22,7 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
         }
     }
     doInit(): void {
-
+        this.room = Game.rooms[this.memory.roomName]
     }
 
     doRun(): RunResultType {
@@ -29,8 +30,22 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
 
         if(!this.roomAnalyst) {
             console.log("NO ANALYST :(")
-            this.sleep(30)
+            this.sleep(5)
             return
+        }
+
+        const storageData = this.roomAnalyst.getStorage()
+        if(storageData) {
+            if(this.room.controller && CONTROLLER_STRUCTURES[STRUCTURE_STORAGE][this.room.controller.level] > 0) {
+                if(storageData.container) {
+                    storageData.container.destroy()
+                }
+
+                storageData.location.createConstructionSite(STRUCTURE_STORAGE)
+            }
+            else {
+                const result = storageData.location.createConstructionSite(STRUCTURE_CONTAINER)
+            }
         }
 
         const sites = this.roomAnalyst.getMiningSites()

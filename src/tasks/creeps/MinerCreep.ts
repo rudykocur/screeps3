@@ -1,3 +1,4 @@
+import { packPos, unpackPos } from "utils/packrat";
 import { RunResult, RunResultType } from "../AbstractTask";
 import { MoveTask } from "../MoveTask";
 import { PersistentTask } from "../PersistentTask";
@@ -5,29 +6,34 @@ import { PersistentTask } from "../PersistentTask";
 interface MinerCreepMemory {
     actorId: Id<Creep>
     sourceId: Id<Source>,
+    containerPos?: string,
     mining?: boolean
 }
 
 interface MinerCreepArgs {
     actor: Creep;
     source: Source;
+    container?: StructureContainer | null
 }
 
 @PersistentTask.register
 export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs> {
-    private actor?: Creep | null;
-    private source: Source;
+    private actor?: Creep | null
+    private source?: Source | null
+    private containerPos?: RoomPosition | null
 
     initMemory(args: MinerCreepArgs): MinerCreepMemory {
         return {
             actorId: args.actor.id,
             sourceId: args.source.id,
+            containerPos: args.container ? packPos(args.container.pos) : undefined,
             mining: false,
         }
     }
 
     doInit(): void {
         this.actor = Game.getObjectById(this.memory.actorId)
+        this.containerPos = this.memory.containerPos ? unpackPos(this.memory.containerPos) : null
 
         const source = Game.getObjectById(this.memory.sourceId)
         if(source) {
@@ -36,24 +42,39 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
     }
 
     doRun(): RunResultType {
-        if(!this.actor) {
+        if(!this.actor || !this.source) {
             return RunResult.DONE
         }
 
-        if(!this.memory.mining && this.actor.pos.isNearTo(this.source)) {
-            console.log(this, 'Reached source!')
-            this.memory.mining = true
+        if(!this.memory.mining) {
+            if(this.containerPos && this.actor.pos.isEqualTo(this.containerPos)) {
+                console.log(this, 'Reached mining container!')
+                this.memory.mining = true
+            }
+            else if(this.actor.pos.isNearTo(this.source)) {
+                console.log(this, 'Reached source!')
+                this.memory.mining = true
+            }
         }
 
         if(this.memory.mining) {
             this.actor.harvest(this.source)
         }
         else {
-            this.scheduleBlockingTask(MoveTask, {
-                actor: this.actor,
-                target: this.source.pos,
-                range: 1
-            })
+            if(this.containerPos) {
+                this.scheduleBlockingTask(MoveTask, {
+                    actor: this.actor,
+                    target: this.containerPos,
+                    range: 0
+                })
+            }
+            else {
+                this.scheduleBlockingTask(MoveTask, {
+                    actor: this.actor,
+                    target: this.source.pos,
+                    range: 1
+                })
+            }
         }
     }
 
@@ -62,10 +83,10 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
     }
 
     getSourceId() {
-        return this.source.id
+        return this.source?.id
     }
 
     toString() {
-        return `[MinerCreep actor=${this.actor} souce=${this.source}]`
+        return `[MinerCreep actor=${this.actor} souce=${this.source} container=${this.containerPos?'yes':'no'}]`
     }
 }

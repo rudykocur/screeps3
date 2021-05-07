@@ -2,7 +2,8 @@ import { RunResult, RunResultType } from "./AbstractTask";
 import { DropResourceTask } from "./DropResource";
 import { RoomManager } from "./RoomManager";
 import { PersistentTask } from "./PersistentTask";
-import { TrasferResourceTask } from "./TransferResourceTask";
+import { TransferResourceTask } from "./TransferResourceTask";
+import { TaskWithActor } from "TaskManager";
 
 interface DepositEnergyMemory {
     actorId: Id<Creep>;
@@ -15,7 +16,7 @@ interface DepositEnergyArgs {
 }
 
 @PersistentTask.register
-export class DepositEnergy extends PersistentTask<DepositEnergyMemory, DepositEnergyArgs> {
+export class DepositEnergy extends PersistentTask<DepositEnergyMemory, DepositEnergyArgs> implements TaskWithActor {
 
     private actor?: Creep | null;
     private room: RoomManager;
@@ -48,21 +49,43 @@ export class DepositEnergy extends PersistentTask<DepositEnergyMemory, DepositEn
         let toRefill = this.room.getStructuresNeedingEnergy();
 
         if(toRefill.length > 0) {
-            this.scheduleBlockingTask(TrasferResourceTask, {
+            this.scheduleBlockingTask(TransferResourceTask, {
                 actor: this.actor,
                 structure: toRefill[0]
             })
             return
         }
 
-        let target = this.room.temporaryStoragePosition;
+        const analyst = this.room.getRoomAnalyst()
 
-        if(target !== undefined) {
+        if(!analyst) {
+            return
+        }
+
+        const storage = analyst.getStorage()
+
+        if(!storage) {
+            return
+        }
+
+        if(storage.container) {
+            if(storage.container.store.getFreeCapacity() > 0) {
+                this.scheduleBlockingTask(TransferResourceTask, {
+                    actor: this.actor,
+                    container: storage.container
+                })
+            }
+        }
+        else {
             this.scheduleBlockingTask(DropResourceTask, {
                 actor: this.actor,
-                target: target,
+                target: storage.location,
             })
         }
+    }
+
+    getActorId() {
+        return this.actor?.id
     }
 
     toString() {

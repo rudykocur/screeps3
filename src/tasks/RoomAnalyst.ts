@@ -11,6 +11,11 @@ interface RoomAnalystMemory {
     sources?: Id<Source>[]
     safeSources?: Id<Source>[]
     constructionSites?: Id<ConstructionSite>[]
+    storage?: {
+        location: string
+        containerId?: Id<StructureContainer>
+        id?: Id<StructureStorage>
+    }
 }
 
 interface MiningSiteMemory {
@@ -37,6 +42,12 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     private sources: Source[]
     private safeSources: Source[]
     private constructionSites: ConstructionSite[]
+
+    private storage?: {
+        location: RoomPosition,
+        container?: StructureContainer | null
+        storage?: StructureStorage | null
+    }
 
     initMemory(args: RoomAnalystArgs): RoomAnalystMemory {
         return {
@@ -70,11 +81,19 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             ?.map(siteId => Game.getObjectById(siteId))
             ?.filter(notEmpty) || []
 
+        if(this.memory.storage) {
+            this.storage = {
+                location: unpackPos(this.memory.storage.location),
+                container: this.memory.storage.containerId ? Game.getObjectById(this.memory.storage.containerId) : null,
+                storage: this.memory.storage.id ? Game.getObjectById(this.memory.storage.id) : null
+            }
+        }
     }
 
     doRun(): RunResultType {
         console.log(this, 'Running analysis ...')
 
+        this.analyzeStorage()
         this.analyzeSources()
         this.analyzeMiningSites()
         this.analyzeConstructionSites()
@@ -82,7 +101,33 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         this.sleep(15)
     }
 
-    analyzeSources() {
+    private analyzeStorage() {
+        if(this.room.storage) {
+            this.memory.storage = {
+                location: packPos(this.room.storage.pos),
+                id: this.room.storage.id,
+            }
+        }
+        else {
+            const storageFlag = Object.values(Game.flags).find(flag =>
+                flag.pos.roomName === this.room.name && flag.color === COLOR_YELLOW && flag.secondaryColor == COLOR_YELLOW
+            )
+
+            if(storageFlag) {
+                const containers = storageFlag.pos.findInRange<StructureContainer>(FIND_STRUCTURES, 1, {
+                    filter: struct => struct.structureType === STRUCTURE_CONTAINER
+                })
+                this.memory.storage = {
+                    location: packPos(storageFlag?.pos)
+                }
+                if(containers.length > 0) {
+                    this.memory.storage.containerId = containers[0].id
+                }
+            }
+        }
+    }
+
+    private analyzeSources() {
         const sources = this.room.find(FIND_SOURCES)
         const safeSources = sources.filter(
             source => source.pos.findInRange(FIND_HOSTILE_STRUCTURES, 5).length === 0
@@ -92,12 +137,43 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         this.memory.safeSources = safeSources.map(source => source.id)
     }
 
-    analyzeMiningSites() {
+    private analyzeMiningSites() {
         const spawn = this.room.find(FIND_MY_SPAWNS)[0];
 
         const newSites: MiningSite[] = [];
 
         this.safeSources.forEach(source => {
+            const existingContainers = source.pos.findInRange<StructureContainer>(FIND_STRUCTURES, 1, {
+                filter: obj => obj.structureType == STRUCTURE_CONTAINER
+            })
+
+            if(existingContainers.length > 0) {
+                const existingContainer = existingContainers[0]
+
+                newSites.push({
+                    source: source,
+                    containerPos: existingContainer.pos,
+                    container: existingContainer
+                })
+
+                return
+            }
+
+            const containerBuildSites = source.pos.findInRange(FIND_CONSTRUCTION_SITES, 1, {
+                filter: site => site.structureType === STRUCTURE_CONTAINER
+            })
+
+            if(containerBuildSites.length > 0) {
+                const containerBuildSite = containerBuildSites[0]
+
+                newSites.push({
+                    source: source,
+                    containerPos: containerBuildSite.pos,
+                })
+
+                return
+            }
+
             const validPositions = getPositionsAround(source.pos).filter(pos => {
                 const elements = pos.look()
 
@@ -144,7 +220,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         })
     }
 
-    analyzeConstructionSites() {
+    private analyzeConstructionSites() {
         this.memory.constructionSites = this.room.find(FIND_CONSTRUCTION_SITES).map(site => site.id)
     }
 
@@ -158,6 +234,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
                 fill: "green"
             })
         }
+    }
+
+    getStorage() {
+        return this.storage
     }
 
     getMiningSites() {

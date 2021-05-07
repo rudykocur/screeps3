@@ -2,7 +2,15 @@ import { RunResult } from "tasks/AbstractTask";
 import { PersistentTask } from "tasks/PersistentTask";
 import { TaskInitArgs, TaskMemory, TaskRuntimeData, TaskType } from "types";
 
-type GenericTask = PersistentTask<TaskMemory, TaskInitArgs>
+export interface TaskWithActor {
+    getActorId(): Id<Creep> | null | undefined
+}
+
+export type GenericTask = PersistentTask<TaskMemory, TaskInitArgs> | (PersistentTask<TaskMemory, TaskInitArgs> & TaskWithActor)
+
+export function isTaskWithActor(task: GenericTask): task is GenericTask {
+    return 'getActorId' in task
+}
 
 interface ScheduleTaskOptions {
     blocking?: boolean;
@@ -209,37 +217,19 @@ export class TaskManager {
                 data: data,
                 subTasks: [],
             }
-
-            //console.log("Initalized task memory", JSON.stringify(Memory.tasks[taskId]));
         }
     }
 
     findTasks<T extends GenericTask>(
         clazz: TaskType<T>
     ): T[] {
-        const x = Object.values(this.taskMap).filter(task => this.isTaskType(clazz, task));
+        const x = Object.values(this.taskMap).filter(task => clazz.name === task.constructor.name);
         return (x as T[])
-    }
-
-    isTaskType<M extends TaskMemory, IA extends TaskInitArgs, T extends PersistentTask<M, IA>>(
-        clazz: TaskType<T>,
-        task: GenericTask
-    ): task is T {
-        return clazz.name === task.constructor.name;
     }
 
     terminate(taskId: string) {
         const task = this.taskMap[taskId]
         this.handleFinshedTask(task)
-        // const taskData = this.memory[taskId]
-        // const parentId = taskData.parentTask
-
-        // if(parentId) {
-        //     const parentTaskData = this.memory[parentId]
-        //     const parentTask = this.taskMap[parentId]
-
-        //     parentTask.removeChildTask(taskId)
-        // }
     }
 
     toString() {

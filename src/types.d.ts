@@ -30,10 +30,7 @@ interface RoomPositionJson {
 }
 
 type StructureWithEnergyStorage = StructureSpawn | StructureExtension
-
-interface TaskWithActor {
-    getActorId(): Id<Creep> | undefined
-}
+type StructureWithGeneralStorage = StructureContainer | StructureStorage
 
 declare global {
     interface Memory {

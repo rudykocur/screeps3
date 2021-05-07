@@ -52,4 +52,7 @@ export class BuildTask extends PersistentTask<BuildTaskMemory, BuildTaskArgs> {
         }
     }
 
+    toString() {
+        return `[BuildTask actor=${this.actor} target=${this.site}]`
+    }
 }

@@ -1,3 +1,4 @@
+import { TaskWithActor } from "TaskManager";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { MoveTask } from "./MoveTask";
 import { PersistentTask } from "./PersistentTask";
@@ -13,7 +14,7 @@ interface PickupResourceArgs {
 }
 
 @PersistentTask.register
-export class PickupResourceTask extends PersistentTask<PickupResourceMemory, PickupResourceArgs> {
+export class PickupResourceTask extends PersistentTask<PickupResourceMemory, PickupResourceArgs> implements TaskWithActor {
     private actor?: Creep | null
     private resource?: Resource | null
 
@@ -48,6 +49,10 @@ export class PickupResourceTask extends PersistentTask<PickupResourceMemory, Pic
                 range: 1,
             })
         }
+    }
+
+    getActorId() {
+        return this.actor?.id
     }
 
     toString() {

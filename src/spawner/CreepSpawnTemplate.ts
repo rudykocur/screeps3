@@ -53,3 +53,18 @@ export class BuilderCreepTemplate implements CreepSpawnTemplate {
     }
 }
 
+export class HaulerCreepTemplate implements CreepSpawnTemplate {
+    constructor(private room: RoomManager) {}
+
+    getBodyParts(): BodyPartConstant[] {
+        return build([MOVE, CARRY], this.room.getMaxSpawnPower());
+    }
+
+    getMemory(): CreepMemory {
+        return {
+            room: this.room.name,
+            role: "hauler",
+        };
+    }
+}
+

@@ -1,29 +1,24 @@
-import { TaskManager } from "TaskManager";
-import { AbstractTask, RunResultType } from "./AbstractTask";
+import { GenericTask, TaskManager } from "TaskManager";
+import { AbstractTask, RunResult, RunResultType } from "./AbstractTask";
 import { counter } from "GlobalCounter";
 import { TaskInitArgs, TaskMemory, TaskType } from "types";
-
-interface SpawnTaskArgs {
-    block?: boolean
-}
 
 export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitArgs> implements AbstractTask {
 
     protected taskId: string;
     protected memory: M;
-    protected childTasks: PersistentTask<TaskMemory, TaskInitArgs>[] = []
-    // protected parentTask?: PersistentTask<TaskMemory, TaskInitArgs>
+    protected childTasks: GenericTask[] = []
 
     constructor(protected taskManager: TaskManager, taskId: string | undefined) {
         if(taskId === undefined) {
-            this.taskId = counter.generate();
+            this.taskId = this.constructor.name + '-' + counter.generate();
         }
         else {
             this.taskId = taskId;
         }
     }
 
-    registerChildTask(task: PersistentTask<TaskMemory, TaskInitArgs>) {
+    registerChildTask(task: GenericTask) {
         this.childTasks.push(task)
     }
 
@@ -31,7 +26,7 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
         this.childTasks = this.childTasks.filter(task => task.getTaskId() === taskId)
     }
 
-    findTask<T extends PersistentTask<TaskMemory, TaskInitArgs>>(
+    findTask<T extends GenericTask>(
         clazz: TaskType<T>
     ): T | null {
         const tasks = this.findTasks(clazz)
@@ -43,20 +38,16 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
         return null
     }
 
-    findTasks<T extends PersistentTask<TaskMemory, TaskInitArgs>>(
+    findTasks<T extends GenericTask>(
         clazz: TaskType<T>
     ): T[] {
-        const x = this.childTasks.filter(task => this.isTaskType(clazz, task));
+        const x = this.childTasks.filter(task => clazz.name === task.constructor.name);
         return (x as T[])
     }
 
-    isTaskType<M extends TaskMemory, IA extends TaskInitArgs, T extends PersistentTask<M, IA>>(
-        clazz: TaskType<T>,
-        task: PersistentTask<TaskMemory, TaskInitArgs>
-    ): task is T {
-        return clazz.name === task.constructor.name;
+    getChildTasks() {
+        return this.childTasks
     }
-    // setParent
 
     getTaskId() {
         return this.taskId;
@@ -92,7 +83,7 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
     run(): RunResultType {
         if(!this.memory) {
             console.log("NO MEMORY !! Not running", this);
-            return;
+            return RunResult.DONE;
         }
 
         return this.doRun();
@@ -102,13 +93,24 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
         this.doVisualize()
     }
 
-    scheduleBlockingTask<M extends TaskMemory, IA extends TaskInitArgs>(
-        taskFactory: TaskType<PersistentTask<M, IA>>,
+    scheduleBlockingTask<M extends TaskMemory, IA extends TaskInitArgs, T extends PersistentTask<M, IA>>(
+        taskFactory: TaskType<T>,
         args: IA,
-    ) {
-        this.taskManager.scheduleTask(taskFactory, args, {
+    ): T {
+        return this.taskManager.scheduleTask(taskFactory, args, {
             blocking: true,
             parent: this,
+        })
+    }
+
+    scheduleChildTask<M extends TaskMemory, IA extends TaskInitArgs, T extends PersistentTask<M, IA>>(
+        parent: GenericTask,
+        taskFactory: TaskType<T>,
+        args: IA,
+    ): T {
+        return this.taskManager.scheduleTask(taskFactory, args, {
+            blocking: true,
+            parent: parent,
         })
     }
 
@@ -140,11 +142,11 @@ export namespace PersistentTask {
         new(...args: any[]): T;
         readonly prototype: T;
     }
-    const implementations: Constructor<PersistentTask<TaskMemory, TaskInitArgs>>[] = [];
-    export function GetImplementations(): Constructor<PersistentTask<TaskMemory, TaskInitArgs>>[] {
+    const implementations: Constructor<GenericTask>[] = [];
+    export function GetImplementations(): Constructor<GenericTask>[] {
         return implementations;
     }
-    export function register<T extends Constructor<PersistentTask<TaskMemory, TaskInitArgs>>>(ctor: T) {
+    export function register<T extends Constructor<GenericTask>>(ctor: T) {
         implementations.push(ctor);
         return ctor;
     }

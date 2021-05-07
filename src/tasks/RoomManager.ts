@@ -1,13 +1,21 @@
 import { Spawner } from "Spawner";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { PersistentTask } from "./PersistentTask";
-import { BuilderCreepTemplate, GenericCreepTemplate, MinerCreepTemplate } from "spawner/CreepSpawnTemplate";
+import { BuilderCreepTemplate, GenericCreepTemplate, HaulerCreepTemplate, MinerCreepTemplate } from "spawner/CreepSpawnTemplate";
 import { MinerCreep } from "tasks/creeps/MinerCreep";
 import { MinimalEnergyWorker } from "tasks/creeps/MinimalEnergyWorker";
-import { CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC, CREEP_ROLE_MINER } from "../constants";
+import { CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER, CREEP_ROLE_MINER } from "../constants";
 import { RoomAnalyst } from "./RoomAnalyst";
 import { RoomBuilder } from "./RoomBuilder";
 import { BuilderCreep } from "./creeps/BuilderCreep";
+import { StructureWithEnergyStorage } from "types";
+import { HaulerCreep } from "./creeps/HaulerCreep";
+import { DepositEnergy } from "./DepositEnergy";
+import { PickupResourceTask } from "./PickupResource";
+import { isTaskWithActor } from "TaskManager";
+import { notEmpty } from "utils/common";
+import { WithdrawEnergy } from "./WithdrawEnergy";
+import { LoadEnergyTask } from "./LoadEnergyTask";
 
 interface RoomManagerMemory {
     roomName: string
@@ -103,7 +111,8 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     doLevel1() {
         //console.log('Do level 1')
         this.manageMiners(1)
-        this.manageBuilders(1)
+        this.manageHaulers(1)
+        this.manageBuilders(2)
     }
 
     doLevel0() {
@@ -122,8 +131,8 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         }
     }
 
-    getStructuresNeedingEnergy() {
-        return this.room.find<Structure>(FIND_MY_STRUCTURES, {
+    getStructuresNeedingEnergy(): StructureWithEnergyStorage[] {
+        return this.room.find<StructureSpawn>(FIND_MY_STRUCTURES, {
             filter: obj => {
                 if(obj.structureType == STRUCTURE_SPAWN) {
                     //console.log('getStructuresNeedingEnergy', obj, '::', obj.store.getFreeCapacity(RESOURCE_ENERGY))
@@ -132,13 +141,6 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
                 return obj.structureType == STRUCTURE_SPAWN && (obj.store.getFreeCapacity(RESOURCE_ENERGY) || 0) > 0
             }
         });
-    }
-
-    getSafeSources(): Source[] {
-        return this.roomAnalyst?.getSafeSources() || []
-        // return this.sources.filter(source =>
-        //     source.pos.findInRange(FIND_HOSTILE_STRUCTURES, 5).length === 0
-        // )
     }
 
     getDroppedResources() {
@@ -157,6 +159,59 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     getMaxSpawnPower() {
         return this.room.energyCapacityAvailable
+    }
+
+    private manageHaulers(maxHaulers: number) {
+        if(!this.roomAnalyst) {
+            return
+        }
+
+        const haulers = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_HAULER);
+
+        if(haulers.length < maxHaulers) {
+            this.spawner.enqueue(new HaulerCreepTemplate(this));
+        }
+
+        const tasks = this.getChildTasks()
+
+        const joblessHaulers = haulers.filter(creep =>
+            tasks.find(job => 'getActorId' in job && job.getActorId() === creep.id) === undefined
+        )
+
+        joblessHaulers.forEach(hauler => {
+
+            const resources = this.getDroppedResources();
+            const nearest = hauler.pos.findClosestByRange(resources);
+            const containers = this.roomAnalyst
+                ?.getMiningSites()
+                .map(site => site.container)
+                .filter(notEmpty)
+                .filter(container => container.store.getUsedCapacity() > 100) || []
+            const nearestContainer = hauler.pos.findClosestByRange(containers)
+
+            if(!nearest && containers.length === 0) {
+                return;
+            }
+
+            const parentTask = this.scheduleBackgroundTask(DepositEnergy, {
+                actor: hauler,
+                room: this,
+            })
+
+            if(nearest) {
+                this.scheduleChildTask(parentTask, PickupResourceTask, {
+                    actor: hauler,
+                    resource: nearest
+                })
+            }
+            else if(nearestContainer) {
+                this.scheduleChildTask(parentTask, LoadEnergyTask, {
+                    actor: hauler,
+                    container: nearestContainer
+                })
+            }
+
+        })
     }
 
     private manageMiners(maxMiners: number) {
@@ -182,14 +237,17 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
                 minerJobs.find(job => job.getSourceId() === site.source.id) === undefined
             )
 
-            const freeSources = this.getSafeSources().filter(source =>
-                minerJobs.find(job => job.getSourceId() === source.id) === undefined
-            )
+            joblessMiners.forEach(miner => {
+                const site = freeSites.shift()
 
-            joblessMiners.forEach((miner, index) => {
+                if(!site) {
+                    return
+                }
+
                 this.scheduleBackgroundTask(MinerCreep, {
                     actor: miner,
-                    source: freeSources[index]
+                    source: site.source,
+                    container: site.container
                 })
             })
         }
@@ -215,7 +273,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
         if(joblessBuilders.length > 0) {
             joblessBuilders.forEach(builder => {
-                this.scheduleBlockingTask(BuilderCreep, {
+                this.scheduleBackgroundTask(BuilderCreep, {
                     actor: builder,
                     room: this
                 })

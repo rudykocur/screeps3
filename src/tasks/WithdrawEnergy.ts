@@ -1,6 +1,8 @@
 import { RunResult, RunResultType } from "./AbstractTask";
+import { LoadEnergyTask } from "./LoadEnergyTask";
 import { PersistentTask } from "./PersistentTask";
 import { PickupResourceTask } from "./PickupResource";
+import { RoomAnalyst } from "./RoomAnalyst";
 import { RoomManager } from "./RoomManager";
 
 interface WithdrawEnergyMemory {
@@ -18,6 +20,7 @@ export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, Withdra
 
     private actor?: Creep | null
     private room?: RoomManager | null
+    private analyst?: RoomAnalyst | null
 
     initMemory(args: WithdrawEnergyArgs): WithdrawEnergyMemory {
         return {
@@ -28,10 +31,11 @@ export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, Withdra
     doInit(): void {
         this.actor = Game.getObjectById(this.memory.actorId)
         this.room = Game.manager.getRoomManager(this.memory.roomName)
+        this.analyst = this.room?.getRoomAnalyst()
 
     }
     doRun(): RunResultType {
-        if(!this.actor || !this.room) {
+        if(!this.actor || !this.room || !this.analyst) {
             return RunResult.DONE
         }
 
@@ -39,18 +43,24 @@ export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, Withdra
             return RunResult.DONE
         }
 
-        const source = this.room.temporaryStoragePosition?.findInRange(FIND_DROPPED_RESOURCES, 1)
+        const storage = this.analyst.getStorage()
 
-        if(source && source.length) {
-            this.scheduleBlockingTask(PickupResourceTask, {
+        if(!storage) {
+            return
+        }
+
+        const target = storage.storage || storage.container
+
+        if(target) {
+            this.scheduleBlockingTask(LoadEnergyTask, {
                 actor: this.actor,
-                resource: source[0]
+                container: target
             })
         }
     }
 
     toString() {
-        return `[WithdrawEnergy ${this.actor}]`
+        return `[WithdrawEnergy actor=${this.actor}]`
     }
 
 }
