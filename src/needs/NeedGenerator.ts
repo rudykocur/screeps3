@@ -1,4 +1,4 @@
-import { CreepRole, CREEP_ROLE_BUILDER } from "../constants";
+import { CreepRole, CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC, CREEP_ROLE_MINER } from "../constants";
 import { CREEP_ROLE_HAULER } from "../constants";
 import { RunResult, RunResultType } from "tasks/AbstractTask";
 import { DepositEnergy } from "tasks/DepositEnergy";
@@ -10,9 +10,12 @@ import { RoomManager } from "tasks/RoomManager";
 import { notEmpty } from "utils/common";
 import { BuildTask } from "tasks/BuildTask";
 import { WithdrawEnergy } from "tasks/WithdrawEnergy";
+import { MinerCreep } from "tasks/creeps/MinerCreep";
+import { UpgradeControllerTask } from "tasks/UpgradeControllerTask";
 
 interface Need {
     roles: CreepRole[]
+    infinite: boolean
 
     generate(actor: Creep): void
 }
@@ -27,13 +30,24 @@ interface ResourceTransferNeed extends Need {
 
 class ResourcePickupNeed implements ResourceTransferNeed {
     roles: CreepRole[] = [CREEP_ROLE_HAULER]
+    infinite = false
+
+    public amount: number
+    public cost: number
+    public resource: Resource
 
     constructor(
         private generator: NeedGenerator,
         private room: RoomManager,
-        public amount: number,
-        public cost: number,
-        public resource: Resource) {}
+        {amount, cost, resource}: {
+            amount: number,
+            cost: number,
+            resource: Resource
+        }) {
+            this.amount = amount
+            this.cost = cost
+            this.resource = resource
+        }
 
     generate(actor: Creep) {
         const parentTask = this.generator.scheduleBackgroundTask(DepositEnergy, {
@@ -50,13 +64,25 @@ class ResourcePickupNeed implements ResourceTransferNeed {
 
 class EmptyContainerNeed implements ResourceTransferNeed {
     roles: CreepRole[] = [CREEP_ROLE_HAULER]
+    infinite = false
+
+    public amount: number
+    public cost: number
+    public container: StructureContainer
 
     constructor(
         private generator: NeedGenerator,
         private room: RoomManager,
-        public amount: number,
-        public cost: number,
-        public container: StructureContainer) {}
+        {amount, cost, container}: {
+            amount: number,
+            cost: number,
+            container: StructureContainer
+        }
+        ) {
+            this.amount = amount
+            this.cost = cost
+            this.container = container
+        }
 
     generate(actor: Creep) {
         const parentTask = this.generator.scheduleBackgroundTask(DepositEnergy, {
@@ -73,11 +99,18 @@ class EmptyContainerNeed implements ResourceTransferNeed {
 
 class BuildSiteNeed implements Need {
     roles: CreepRole[] = [CREEP_ROLE_BUILDER]
+    infinite = false
+
+    public site: ConstructionSite
 
     constructor(
         private generator: NeedGenerator,
         private room: RoomManager,
-        public site: ConstructionSite) {}
+        {site}: {
+            site: ConstructionSite
+        }) {
+            this.site = site
+        }
 
     generate(actor: Creep) {
         const parent = this.generator.scheduleBackgroundTask(BuildTask, {
@@ -92,7 +125,57 @@ class BuildSiteNeed implements Need {
     }
 }
 
-type NeedTypes = ResourceTransferNeed | EmptyContainerNeed | BuildSiteNeed
+class MineSourceNeed implements Need {
+    roles: CreepRole[] = [CREEP_ROLE_MINER]
+    infinite = false
+
+    source: Source
+    container?: StructureContainer | null
+
+    constructor(
+        private generator: NeedGenerator,
+        private room: RoomManager,
+        {source, container}: {
+            source: Source,
+            container?: StructureContainer | null
+        }
+    ) {
+        this.source = source
+        this.container = container
+    }
+
+    generate(actor: Creep) {
+        this.generator.scheduleBackgroundTask(MinerCreep, {
+            actor: actor,
+            source: this.source,
+            container: this.container
+        })
+    }
+}
+
+class UpgradeControllerNeed implements Need {
+    roles: CreepRole[] = [CREEP_ROLE_GENERIC]
+    infinite = true
+
+    constructor(
+        private generator: NeedGenerator,
+        private room: RoomManager) {}
+
+    generate(actor: Creep) {
+        const parent = this.generator.scheduleBackgroundTask(UpgradeControllerTask, {
+            actor: actor,
+            room: this.room
+        })
+
+        this.generator.scheduleChildTask(parent, WithdrawEnergy, {
+            actor: actor,
+            room: this.room
+        })
+    }
+}
+
+
+type NeedTypes = ResourceTransferNeed | EmptyContainerNeed | BuildSiteNeed | MineSourceNeed | UpgradeControllerNeed
 
 interface NeedGeneratorMemory {
     roomName: string
@@ -139,6 +222,10 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
             tasks.find(job => 'getActorId' in job && job.getActorId() === creep.id) === undefined
         )
 
+        if(jobless.length === 0) {
+            return
+        }
+
         const needs = this.generateNeeds()
 
         for(const actor of jobless) {
@@ -148,7 +235,10 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
                 continue
             }
 
-            const need = needs.splice(needIndex, 1)[0]
+            const need = needs[needIndex]
+            if(!need.infinite) {
+                needs.splice(needIndex, 1)[0]
+            }
 
             if(!need) {
                 return
@@ -156,7 +246,6 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
 
             need.generate(actor)
         }
-
     }
 
     generateNeeds(): NeedTypes[] {
@@ -172,6 +261,8 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
             this._needs = resourceNeeds
                 .concat(containerNeeds)
                 .concat(this.generateBuildNeeds(this.room))
+                .concat(this.generateMinerNeeds(this.room))
+                .concat(this.generateUpgradeNeeds(this.room))
         }
 
         return this._needs
@@ -182,10 +273,11 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
             return new ResourcePickupNeed(
                 this,
                 room,
-                resource.amount,
-                0,
-                // actor.pos.getRangeTo(resource),
-                resource
+                 {
+                     amount: resource.amount,
+                     cost: 0,
+                     resource: resource
+                 }
             )
         })
     }
@@ -200,10 +292,12 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
                 return new EmptyContainerNeed(
                     this,
                     room,
-                    container.store.getUsedCapacity(),
-                    0,
-                    // actor.pos.getRangeTo(container),
-                    container
+                    {
+                        amount: container.store.getUsedCapacity(),
+                        cost: 0,
+                        // actor.pos.getRangeTo(container),
+                        container: container
+                    }
                 )
             }) || []
     }
@@ -211,7 +305,28 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
     private generateBuildNeeds(room: RoomManager): NeedTypes[] {
         return this.analyst
             ?.getConstructionSites()
-            .map(site => new BuildSiteNeed(this, room, site)) || []
+            .map(site => new BuildSiteNeed(this, room, {site: site})) || []
+    }
+
+    private generateMinerNeeds(room: RoomManager): NeedTypes[] {
+        const sites = this.analyst?.getMiningSites() || []
+
+        const tasks = this.findTasks(MinerCreep)
+
+        const freeSites = sites.filter(site =>
+            tasks.find(job => job.getSourceId() === site.source.id) === undefined
+        )
+
+        return freeSites.map(site => new MineSourceNeed(this, room, {
+            source: site.source,
+            container: site.container
+        }))
+    }
+
+    private generateUpgradeNeeds(room: RoomManager): NeedTypes[] {
+        return [
+            new UpgradeControllerNeed(this, room)
+        ]
     }
 
     toString() {

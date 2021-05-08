@@ -2,7 +2,6 @@ import { Spawner } from "Spawner";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { PersistentTask } from "./PersistentTask";
 import { BuilderCreepTemplate, GenericCreepTemplate, HaulerCreepTemplate, MinerCreepTemplate } from "spawner/CreepSpawnTemplate";
-import { MinerCreep } from "tasks/creeps/MinerCreep";
 import { MinimalEnergyWorker } from "tasks/creeps/MinimalEnergyWorker";
 import { CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER, CREEP_ROLE_MINER } from "../constants";
 import { RoomAnalyst } from "./RoomAnalyst";
@@ -107,6 +106,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         this.manageMiners(1)
         this.manageHaulers(1)
         this.manageBuilders(2)
+        this.manageGeneric(2)
     }
 
     doLevel0() {
@@ -170,7 +170,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     }
 
     private manageMiners(maxMiners: number) {
-        if(!this.roomAnalyst) {
+        if(!this.roomAnalyst || !this.needGenerator) {
             return
         }
 
@@ -180,32 +180,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
             this.spawner.enqueue(new MinerCreepTemplate(this));
         }
 
-        const minerJobs = this.findTasks(MinerCreep)
-        const joblessMiners = miners.filter(creep =>
-            minerJobs.find(job => job.getActorId() === creep.id) === undefined
-        )
-
-        if(joblessMiners.length > 0) {
-            const sites = this.roomAnalyst.getMiningSites()
-
-            const freeSites = sites.filter(site =>
-                minerJobs.find(job => job.getSourceId() === site.source.id) === undefined
-            )
-
-            joblessMiners.forEach(miner => {
-                const site = freeSites.shift()
-
-                if(!site) {
-                    return
-                }
-
-                this.scheduleBackgroundTask(MinerCreep, {
-                    actor: miner,
-                    source: site.source,
-                    container: site.container
-                })
-            })
-        }
+        this.needGenerator.assignTasks(miners)
     }
 
     private manageBuilders(maxBuilders: number) {
@@ -222,6 +197,20 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         }
 
         this.needGenerator.assignTasks(builders)
+    }
+
+    private manageGeneric(maxActors: number) {
+        if(!this.needGenerator) {
+            return
+        }
+
+        const actors = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_GENERIC)
+
+        if(actors.length < maxActors) {
+            this.spawner.enqueue(new GenericCreepTemplate(this))
+        }
+
+        this.needGenerator.assignTasks(actors)
     }
 
     get temporaryStoragePosition() {
