@@ -19,6 +19,8 @@ interface TaskRuntimeData {
     sleepUntil?: number
 }
 
+type Optional<T> = T | null
+
 export interface Type<T> extends Function { new (...args: any[]): T; }
 
 export interface TaskType<T> extends Function { new (taskManager: TaskManager, taskId: string | undefined): T; }
