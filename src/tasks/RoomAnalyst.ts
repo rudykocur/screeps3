@@ -34,6 +34,26 @@ interface MiningSite {
     containerPos: RoomPosition
 }
 
+export class RoomStorageWrapper {
+
+    constructor(
+        public location: RoomPosition,
+        public container?: StructureContainer | null,
+        public storage?: StructureStorage | null
+    ) {}
+
+    getResourceAmount(resource: ResourceConstant): number {
+        if(this.container) {
+            return this.container.store[resource]
+        }
+        if(this.storage) {
+            return this.storage.store[resource]
+        }
+
+        return 0
+    }
+}
+
 @PersistentTask.register
 export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystArgs> {
 
@@ -43,11 +63,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     private safeSources: Source[]
     private constructionSites: ConstructionSite[]
 
-    private storage?: {
-        location: RoomPosition,
-        container?: StructureContainer | null
-        storage?: StructureStorage | null
-    }
+    private storage?: RoomStorageWrapper | null
 
     initMemory(args: RoomAnalystArgs): RoomAnalystMemory {
         return {
@@ -82,11 +98,11 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             ?.filter(notEmpty) || []
 
         if(this.memory.storage) {
-            this.storage = {
-                location: unpackPos(this.memory.storage.location),
-                container: this.memory.storage.containerId ? Game.getObjectById(this.memory.storage.containerId) : null,
-                storage: this.memory.storage.id ? Game.getObjectById(this.memory.storage.id) : null
-            }
+            this.storage = new RoomStorageWrapper(
+                unpackPos(this.memory.storage.location),
+                this.memory.storage.containerId ? Game.getObjectById(this.memory.storage.containerId) : null,
+                this.memory.storage.id ? Game.getObjectById(this.memory.storage.id) : null
+            )
         }
     }
 
@@ -97,6 +113,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         this.analyzeSources()
         this.analyzeMiningSites()
         this.analyzeConstructionSites()
+        this.analyzeExtensions()
 
         this.sleep(15)
     }
@@ -222,6 +239,92 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     private analyzeConstructionSites() {
         this.memory.constructionSites = this.room.find(FIND_CONSTRUCTION_SITES).map(site => site.id)
+    }
+
+    private analyzeExtensions() {
+        if(!this.room.controller) {
+            return
+        }
+
+        const spawn = this.room.find<StructureSpawn>(FIND_MY_STRUCTURES, {
+            filter: struct => struct.structureType === STRUCTURE_SPAWN
+        })[0]
+
+        const exisingExtensions = this.room.find<StructureExtension>(FIND_MY_STRUCTURES, {
+            filter: struct => struct.structureType === STRUCTURE_EXTENSION
+        }).length
+
+        const extensionsInConstruction = this.room.find(FIND_CONSTRUCTION_SITES, {
+            filter: site => site.structureType === STRUCTURE_EXTENSION
+        }).length
+
+        const maxExtensions = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][this.room.controller.level]
+
+        if(exisingExtensions + extensionsInConstruction >= maxExtensions) {
+            return
+        }
+
+        let buildSize = Math.ceil(Math.sqrt((maxExtensions)*2))
+        if(buildSize % 2 === 0) {
+            buildSize += 1
+        }
+
+        this.room.visual.rect(spawn.pos.x - buildSize/2, spawn.pos.y - buildSize/2, buildSize, buildSize)
+
+        let placedExtensions = 0
+
+        const baseLeft = spawn.pos.x - (buildSize-1)/2
+        const baseTop = spawn.pos.y - (buildSize-1)/2
+
+        this.room.visual.circle(baseLeft, baseTop)
+
+        for(let i = 0; i < buildSize; i++) {
+            for(let j = 0; j < buildSize; j++) {
+                const pos = new RoomPosition(baseLeft + j, baseTop + i, spawn.pos.roomName)
+
+                if(!(i%2==1 && j%2==1) && !(i%2==0 && j%2==0)) {
+                    continue
+                }
+
+                if(!this.isBuildable(pos)) {
+                    continue
+                }
+
+                this.room.visual.circle(pos, {
+                    fill: 'green'
+                })
+
+                pos.createConstructionSite(STRUCTURE_EXTENSION)
+
+                placedExtensions++
+
+                if(placedExtensions >= maxExtensions) {
+                    break
+                }
+            }
+
+            if(placedExtensions >= maxExtensions) {
+                break
+            }
+        }
+    }
+
+    isBuildable(pos: RoomPosition): boolean {
+        const elements = pos.look()
+
+        for(const item of elements) {
+            if(item.terrain === "wall") {
+                return false
+            }
+            if(item.structure) {
+                return false
+            }
+            if(item.constructionSite) {
+                return false
+            }
+        }
+
+        return true
     }
 
     doVisualize() {

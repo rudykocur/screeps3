@@ -13,16 +13,18 @@ import { WithdrawEnergy } from "tasks/WithdrawEnergy";
 import { MinerCreep } from "tasks/creeps/MinerCreep";
 import { UpgradeControllerTask } from "tasks/UpgradeControllerTask";
 
+const LOWEST_PRIORITY = 99999999
+
 interface Need {
     roles: CreepRole[]
     infinite: boolean
 
     generate(actor: Creep): void
+    calculateCost(actor: Creep): number
 }
 
 interface ResourceTransferNeed extends Need {
     amount: number
-    cost: number
     resource?: Resource
     container?: StructureContainer
     tombstone?: Tombstone
@@ -33,19 +35,16 @@ class ResourcePickupNeed implements ResourceTransferNeed {
     infinite = false
 
     public amount: number
-    public cost: number
     public resource: Resource
 
     constructor(
         private generator: NeedGenerator,
         private room: RoomManager,
-        {amount, cost, resource}: {
+        {amount, resource}: {
             amount: number,
-            cost: number,
             resource: Resource
         }) {
             this.amount = amount
-            this.cost = cost
             this.resource = resource
         }
 
@@ -60,6 +59,16 @@ class ResourcePickupNeed implements ResourceTransferNeed {
             resource: this.resource
         })
     }
+
+    calculateCost(actor: Creep) {
+        const storeLocation = this.room.getRoomAnalyst()?.getStorage()?.location
+
+        if(!storeLocation) {
+            return LOWEST_PRIORITY
+        }
+
+        return actor.pos.getRangeTo(this.resource) + this.resource.pos.getRangeTo(storeLocation)
+    }
 }
 
 class EmptyContainerNeed implements ResourceTransferNeed {
@@ -67,20 +76,17 @@ class EmptyContainerNeed implements ResourceTransferNeed {
     infinite = false
 
     public amount: number
-    public cost: number
     public container: StructureContainer
 
     constructor(
         private generator: NeedGenerator,
         private room: RoomManager,
-        {amount, cost, container}: {
+        {amount, container}: {
             amount: number,
-            cost: number,
             container: StructureContainer
         }
         ) {
             this.amount = amount
-            this.cost = cost
             this.container = container
         }
 
@@ -94,6 +100,16 @@ class EmptyContainerNeed implements ResourceTransferNeed {
             actor: actor,
             container: this.container
         })
+    }
+
+    calculateCost(actor: Creep) {
+        const storeLocation = this.room.getRoomAnalyst()?.getStorage()?.location
+
+        if(!storeLocation) {
+            return LOWEST_PRIORITY
+        }
+
+        return actor.pos.getRangeTo(this.container) + this.container.pos.getRangeTo(storeLocation)
     }
 }
 
@@ -123,6 +139,16 @@ class BuildSiteNeed implements Need {
             room: this.room
         })
     }
+
+    calculateCost(actor: Creep) {
+        const storeLocation = this.room.getRoomAnalyst()?.getStorage()?.location
+
+        if(!storeLocation) {
+            return LOWEST_PRIORITY
+        }
+
+        return actor.pos.getRangeTo(storeLocation) + storeLocation.getRangeTo(this.site)
+    }
 }
 
 class MineSourceNeed implements Need {
@@ -134,7 +160,6 @@ class MineSourceNeed implements Need {
 
     constructor(
         private generator: NeedGenerator,
-        private room: RoomManager,
         {source, container}: {
             source: Source,
             container?: StructureContainer | null
@@ -150,6 +175,10 @@ class MineSourceNeed implements Need {
             source: this.source,
             container: this.container
         })
+    }
+
+    calculateCost(actor: Creep) {
+        return 0
     }
 }
 
@@ -171,6 +200,10 @@ class UpgradeControllerNeed implements Need {
             actor: actor,
             room: this.room
         })
+    }
+
+    calculateCost(actor: Creep) {
+        return LOWEST_PRIORITY
     }
 }
 
@@ -226,25 +259,30 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
             return
         }
 
+        console.log(this, `<span style="color: yellow">assigning tasks to ${jobless.length} actors with role [${role}] ...</span>`)
+
         const needs = this.generateNeeds()
 
         for(const actor of jobless) {
 
-            const needIndex = needs.findIndex(need => need.roles.indexOf(role) >= 0)
+            const applicableNeeds = needs.filter(need => need.roles.indexOf(role) >= 0)
+            const sortedNeeds = applicableNeeds
+                .map(need => {return {need, cost: need.calculateCost(actor)}})
+                .sort((a, b) => a.cost - b.cost)
+                .map(item => item.need)
+
+            const cheapestNeed = sortedNeeds[0]
+
+            const needIndex = needs.findIndex(need => need === cheapestNeed)
             if(needIndex < 0) {
                 continue
             }
 
-            const need = needs[needIndex]
-            if(!need.infinite) {
-                needs.splice(needIndex, 1)[0]
-            }
+            cheapestNeed.generate(actor)
 
-            if(!need) {
-                return
+            if(!cheapestNeed.infinite) {
+                needs.splice(needIndex, 1)
             }
-
-            need.generate(actor)
         }
     }
 
@@ -254,6 +292,7 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
         }
 
         if(!this._needs) {
+            console.log(this, '<span style="color: orange">generating needs ...</span>')
             const resourceNeeds = this.generateResourceNeeds(this.room)
 
             const containerNeeds = this.generateMiningSitesNeeds(this.room)
@@ -275,7 +314,6 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
                 room,
                  {
                      amount: resource.amount,
-                     cost: 0,
                      resource: resource
                  }
             )
@@ -294,8 +332,6 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
                     room,
                     {
                         amount: container.store.getUsedCapacity(),
-                        cost: 0,
-                        // actor.pos.getRangeTo(container),
                         container: container
                     }
                 )
@@ -303,6 +339,12 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
     }
 
     private generateBuildNeeds(room: RoomManager): NeedTypes[] {
+        const storedEnergy = room.getRoomAnalyst()?.getStorage()?.getResourceAmount(RESOURCE_ENERGY)
+
+        if(!storedEnergy || storedEnergy < 300) {
+            return []
+        }
+
         return this.analyst
             ?.getConstructionSites()
             .map(site => new BuildSiteNeed(this, room, {site: site})) || []
@@ -317,13 +359,19 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
             tasks.find(job => job.getSourceId() === site.source.id) === undefined
         )
 
-        return freeSites.map(site => new MineSourceNeed(this, room, {
+        return freeSites.map(site => new MineSourceNeed(this, {
             source: site.source,
             container: site.container
         }))
     }
 
     private generateUpgradeNeeds(room: RoomManager): NeedTypes[] {
+        const storedEnergy = room.getRoomAnalyst()?.getStorage()?.getResourceAmount(RESOURCE_ENERGY)
+
+        if(!storedEnergy || storedEnergy < 300) {
+            return []
+        }
+
         return [
             new UpgradeControllerNeed(this, room)
         ]
