@@ -11,6 +11,7 @@ interface RoomAnalystMemory {
     sources?: Id<Source>[]
     safeSources?: Id<Source>[]
     constructionSites?: Id<ConstructionSite>[]
+    extensions?: Id<StructureExtension>[]
     storage?: {
         location: string
         containerId?: Id<StructureContainer>
@@ -62,6 +63,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     private sources: Source[]
     private safeSources: Source[]
     private constructionSites: ConstructionSite[]
+    private extensions: StructureExtension[]
 
     private storage?: RoomStorageWrapper | null
 
@@ -95,6 +97,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
         this.constructionSites = this.memory.constructionSites
             ?.map(siteId => Game.getObjectById(siteId))
+            ?.filter(notEmpty) || []
+
+        this.extensions = this.memory.extensions
+            ?.map(extensionId => Game.getObjectById(extensionId))
             ?.filter(notEmpty) || []
 
         if(this.memory.storage) {
@@ -250,9 +256,12 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             filter: struct => struct.structureType === STRUCTURE_SPAWN
         })[0]
 
-        const exisingExtensions = this.room.find<StructureExtension>(FIND_MY_STRUCTURES, {
+        const extensions = this.room.find<StructureExtension>(FIND_MY_STRUCTURES, {
             filter: struct => struct.structureType === STRUCTURE_EXTENSION
-        }).length
+        });
+        this.memory.extensions = extensions.map(ext => ext.id)
+
+        const exisingExtensionsAmount = extensions.length
 
         const extensionsInConstruction = this.room.find(FIND_CONSTRUCTION_SITES, {
             filter: site => site.structureType === STRUCTURE_EXTENSION
@@ -260,7 +269,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
         const maxExtensions = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][this.room.controller.level]
 
-        if(exisingExtensions + extensionsInConstruction >= maxExtensions) {
+        if(exisingExtensionsAmount + extensionsInConstruction >= maxExtensions) {
             return
         }
 
@@ -339,6 +348,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         }
     }
 
+    getRCL() {
+        return this.room.controller?.level || 0
+    }
+
     getStorage() {
         return this.storage
     }
@@ -353,6 +366,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     getSafeSources() {
         return this.safeSources
+    }
+
+    getExtensions() {
+        return this.extensions
     }
 
     toString() {

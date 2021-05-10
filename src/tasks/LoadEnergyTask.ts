@@ -7,12 +7,14 @@ interface LoadEnergyMemory {
     actorId: Id<Creep>
     structureId?: Id<StructureWithEnergyStorage>
     containerId?: Id<StructureWithGeneralStorage>
+    amount?: number
 }
 
 interface LoadEnergyArgs {
     actor: Creep
     structure?: StructureWithEnergyStorage
     container?: StructureWithGeneralStorage
+    amount?: number
 }
 
 @PersistentTask.register
@@ -21,18 +23,21 @@ export class LoadEnergyTask extends PersistentTask<LoadEnergyMemory, LoadEnergyA
     private actor?: Creep | null
     private structure?: StructureWithEnergyStorage | null
     private container?: StructureWithGeneralStorage | null
+    amount?: number;
 
     initMemory(args: LoadEnergyArgs): LoadEnergyMemory {
         return {
             actorId: args.actor.id,
             structureId: args.structure?.id,
             containerId: args.container?.id,
+            amount: args.amount,
         }
     }
     doInit(): void {
         this.actor = Game.getObjectById(this.memory.actorId);
         this.structure = this.memory.structureId ? Game.getObjectById(this.memory.structureId) : null
         this.container = this.memory.containerId ? Game.getObjectById(this.memory.containerId) : null
+        this.amount = this.memory.amount
     }
 
     doRun(): RunResultType {
@@ -42,12 +47,19 @@ export class LoadEnergyTask extends PersistentTask<LoadEnergyMemory, LoadEnergyA
             return RunResult.DONE
         }
 
-        if(this.actor.store.getFreeCapacity() === 0) {
+        if(this.amount && this.actor.store.getUsedCapacity() >= this.amount) {
+            return RunResult.DONE
+        }
+        else if(this.actor.store.getFreeCapacity() === 0) {
+            return RunResult.DONE
+        }
+
+        if(this.container && !this.amount && this.container.store.getUsedCapacity() < 10) {
             return RunResult.DONE
         }
 
         if(this.actor.pos.isNearTo(target)) {
-            this.actor.withdraw(target, RESOURCE_ENERGY)
+            this.actor.withdraw(target, RESOURCE_ENERGY, this.amount)
         }
         else {
             this.scheduleBlockingTask(MoveTask, {

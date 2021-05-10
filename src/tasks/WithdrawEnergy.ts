@@ -9,11 +9,13 @@ import { RoomManager } from "./RoomManager";
 interface WithdrawEnergyMemory {
     actorId: Id<Creep>
     roomName: string
+    amount?: number
 }
 
 interface WithdrawEnergyArgs {
     actor: Creep
     room: RoomManager
+    amount?: number
 }
 
 @PersistentTask.register
@@ -22,11 +24,13 @@ export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, Withdra
     private actor?: Creep | null
     private room?: RoomManager | null
     private analyst?: RoomAnalyst | null
+    private amount?: number
 
     initMemory(args: WithdrawEnergyArgs): WithdrawEnergyMemory {
         return {
             actorId: args.actor.id,
-            roomName: args.room.name
+            roomName: args.room.name,
+            amount: args.amount,
         }
     }
     doInit(): void {
@@ -34,13 +38,18 @@ export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, Withdra
         this.room = Game.manager.getRoomManager(this.memory.roomName)
         this.analyst = this.room?.getRoomAnalyst()
 
+        this.amount = this.memory.amount
+
     }
     doRun(): RunResultType {
         if(!this.actor || !this.room || !this.analyst) {
             return RunResult.DONE
         }
 
-        if(this.actor.store.getFreeCapacity() === 0) {
+        if(this.amount && this.actor.store.getUsedCapacity() >= this.amount) {
+            return RunResult.DONE
+        }
+        else if(this.actor.store.getFreeCapacity() === 0) {
             return RunResult.DONE
         }
 
@@ -55,7 +64,8 @@ export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, Withdra
         if(target) {
             this.scheduleBlockingTask(LoadEnergyTask, {
                 actor: this.actor,
-                container: target
+                container: target,
+                amount: this.amount,
             })
         }
     }

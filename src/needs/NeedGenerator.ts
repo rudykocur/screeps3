@@ -8,6 +8,7 @@ import { ResourcePickupProvider } from "./ResourceNeeds";
 import { EmptyContainerNeedProvider } from "./EmptyContainersNeeds";
 import { MineNeedsProvider } from "./MineNeeds";
 import { GenericNeedsProvider } from "./GenericNeeds";
+import { EnergyRefillNeedsProvider } from "./EnergyRefillNeeds";
 
 export const LOWEST_PRIORITY = 99999999
 
@@ -60,6 +61,7 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
             this.providers.push(
                 new ResourcePickupProvider(this, this.room),
                 new EmptyContainerNeedProvider(this, this.room),
+                new EnergyRefillNeedsProvider(this, this.room),
                 new MineNeedsProvider(this, this.room),
                 new BuildNeedProvider(this, this.room),
                 new GenericNeedsProvider(this, this.room),

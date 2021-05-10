@@ -22,7 +22,6 @@ export class ResourcePickupProvider implements NeedsProvider {
             )
         })
     }
-
 }
 
 export class ResourcePickupNeed implements ResourceTransferNeed {
