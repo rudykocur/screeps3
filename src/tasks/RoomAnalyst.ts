@@ -4,6 +4,7 @@ import { PersistentTask } from "./PersistentTask";
 import { getPositionsAround } from "../utils/MapUtils"
 import { packPos, unpackPos } from "../utils/packrat"
 import { notEmpty } from "utils/common";
+import { CREEP_ROLE_MINER, CREEP_ROLE_HAULER } from "../constants";
 
 interface RoomAnalystMemory {
     roomName: string,
@@ -53,6 +54,22 @@ export class RoomStorageWrapper {
 
         return 0
     }
+
+    getCapacity() {
+        if(this.container) {
+            return this.container.store.getCapacity()
+        }
+
+        if(this.storage) {
+            return this.storage.store.getCapacity()
+        }
+
+        return 0
+    }
+
+    isFull() {
+        return this.getResourceAmount(RESOURCE_ENERGY) === this.getCapacity()
+    }
 }
 
 @PersistentTask.register
@@ -64,6 +81,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     private safeSources: Source[]
     private constructionSites: ConstructionSite[]
     private extensions: StructureExtension[]
+    private creeps: Creep[]
 
     private storage?: RoomStorageWrapper | null
 
@@ -110,6 +128,8 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
                 this.memory.storage.id ? Game.getObjectById(this.memory.storage.id) : null
             )
         }
+
+        this.creeps = this.room.find(FIND_MY_CREEPS)
     }
 
     doRun(): RunResultType {
@@ -381,6 +401,12 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     getExtensions() {
         return this.extensions
+    }
+
+    isRoomAtCritical() {
+        const miners = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_MINER).length
+        const haulers = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_HAULER).length
+        return miners < 1 || haulers < 1
     }
 
     toString() {

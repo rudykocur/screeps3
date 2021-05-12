@@ -5,10 +5,10 @@ import { RoomAnalyst } from "tasks/RoomAnalyst";
 import { RoomManager } from "tasks/RoomManager";
 import { BuildNeedProvider } from "./BuilderNeeds";
 import { ResourcePickupProvider } from "./ResourceNeeds";
-import { EmptyContainerNeedProvider } from "./EmptyContainersNeeds";
+import { EmptyContainerAtCriticalNeedProvider, EmptyContainerNeedProvider } from "./EmptyContainersNeeds";
 import { MineNeedsProvider } from "./MineNeeds";
 import { GenericNeedsProvider } from "./GenericNeeds";
-import { EnergyRefillNeedsProvider } from "./EnergyRefillNeeds";
+import { EnergyRefillAtCriticalNeedProvider, EnergyRefillNeedsProvider } from "./EnergyRefillNeeds";
 
 export const LOWEST_PRIORITY = 99999999
 
@@ -22,6 +22,7 @@ export interface Need {
 
 export interface NeedsProvider {
     generate(): Need[]
+    isActive(): boolean
 }
 
 export interface ResourceTransferNeed extends Need {
@@ -57,14 +58,16 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
         this.room = Game.manager.getRoomManager(this.memory.roomName)
         this.analyst = this.room?.getRoomAnalyst()
 
-        if(this.room) {
+        if(this.room && this.analyst) {
             this.providers.push(
                 new ResourcePickupProvider(this, this.room),
-                new EmptyContainerNeedProvider(this, this.room),
-                new EnergyRefillNeedsProvider(this, this.room),
-                new MineNeedsProvider(this, this.room),
-                new BuildNeedProvider(this, this.room),
-                new GenericNeedsProvider(this, this.room),
+                new EmptyContainerNeedProvider(this, this.room, this.analyst),
+                new EnergyRefillNeedsProvider(this, this.room, this.analyst),
+                new MineNeedsProvider(this, this.analyst),
+                new BuildNeedProvider(this, this.room, this.analyst),
+                new GenericNeedsProvider(this, this.room, this.analyst),
+                new EmptyContainerAtCriticalNeedProvider(this, this.room, this.analyst),
+                new EnergyRefillAtCriticalNeedProvider(this, this.room, this.analyst),
             )
         }
     }
@@ -131,7 +134,9 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
         }
 
         if(!this._needs) {
-            this._needs = this.providers.map(provider => provider.generate()).reduce((a, b) => a.concat(b));
+            this._needs = this.providers
+                .filter(provider => provider.isActive())
+                .map(provider => provider.generate()).reduce((a, b) => a.concat(b));
         }
 
         return this._needs

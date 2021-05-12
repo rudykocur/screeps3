@@ -5,39 +5,12 @@ import { PersistentTask } from "../PersistentTask";
 import { counter } from "GlobalCounter";
 import { ContainerReservation } from "./ContainerReservation";
 import { ResourceReservation } from "./ResourceReservation";
+import { ReservationManagerMemory, ReservationManagerArgs, ReservableHandler, IReservationManager } from "./common";
 
 type ReserveClasses = StructureSpawn | StructureWithGeneralStorage | Resource
 
-export interface ReservationChunk {
-    reservationId: string
-}
-
-export interface ReservationMemory {
-    chunks: ReservationChunk[]
-}
-
-export interface ReservableHandler {
-    initMemory(target: any): ReservationMemory
-    init(memory: any): void
-    getTargetId(): string | undefined
-    reserve(task: GenericTask, amount: number): void
-    getReservedAmount(): number
-}
-
-export interface ReservationManagerMemory {
-    handlers: ReservationHandlerMemory[]
-}
-
-export interface ReservationManagerArgs {}
-
-export interface ReservationHandlerMemory {
-    type: string
-    targetId: string
-    data: ReservationMemory
-}
-
 @PersistentTask.register
-export class ReservationManager extends PersistentTask<ReservationManagerMemory, ReservationManagerArgs> {
+export class ReservationManager extends PersistentTask<ReservationManagerMemory, ReservationManagerArgs> implements IReservationManager {
 
     private reservationHandlers: ReservableHandler[] = []
     private handlersMap: Record<string, ReservableHandler> = {}
@@ -49,7 +22,7 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
     }
 
     doInit(): void {
-        const implementations = ReservationManager.getReservationHandlers()
+        const implementations = IReservationManager.getReservationHandlers()
         this.memory.handlers.forEach(handlerData => {
             const impl = implementations.find(impl => impl.name === handlerData.type)
 
@@ -135,21 +108,6 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
 
     toString() {
         return "[ReservationManager]"
-    }
-}
-
-export namespace ReservationManager {
-    type Constructor<T> = {
-        new(manager: ReservationManager): T;
-        readonly prototype: T;
-    }
-    const implementations: Constructor<ReservableHandler>[] = [];
-    export function getReservationHandlers(): Constructor<ReservableHandler>[] {
-        return implementations;
-    }
-    export function registerReservationHandler<T extends Constructor<ReservableHandler>>(ctor: T) {
-        implementations.push(ctor);
-        return ctor;
     }
 }
 

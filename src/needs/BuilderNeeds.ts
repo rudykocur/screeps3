@@ -8,29 +8,26 @@ import { Optional } from "types"
 
 export class BuildNeedProvider implements NeedsProvider {
 
-    private analyst?: Optional<RoomAnalyst>
-
     constructor(
         private generator: NeedGenerator,
-        private room: RoomManager
-    ) {
-        this.analyst = this.room?.getRoomAnalyst()
-    }
+        private room: RoomManager,
+        private analyst: RoomAnalyst,
+    ) {}
 
     generate(): Need[] {
-        if(!this.room) {
-            return []
-        }
-
-        const storedEnergy = this.room.getRoomAnalyst()?.getStorage()?.getResourceAmount(RESOURCE_ENERGY)
+        const storedEnergy = this.analyst.getStorage()?.getResourceAmount(RESOURCE_ENERGY)
 
         if(!storedEnergy || storedEnergy < 300) {
             return []
         }
 
         return this.analyst
-            ?.getConstructionSites()
+            .getConstructionSites()
             .map(site => new BuildSiteNeed(this.generator, this.room, {site: site})) || []
+    }
+
+    isActive() {
+        return true
     }
 
 }

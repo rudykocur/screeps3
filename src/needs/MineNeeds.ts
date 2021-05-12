@@ -7,17 +7,13 @@ import { Optional } from "types"
 
 export class MineNeedsProvider implements NeedsProvider {
 
-    private analyst?: Optional<RoomAnalyst>
-
     constructor(
         private generator: NeedGenerator,
-        private room: RoomManager
-    ) {
-        this.analyst = this.room?.getRoomAnalyst()
-    }
+        private analyst: RoomAnalyst,
+    ) {}
 
     generate(): Need[] {
-        const sites = this.analyst?.getMiningSites() || []
+        const sites = this.analyst.getMiningSites()
 
         const tasks = this.generator.findTasks(MinerCreep)
 
@@ -29,6 +25,10 @@ export class MineNeedsProvider implements NeedsProvider {
             source: site.source,
             container: site.container
         }))
+    }
+
+    isActive() {
+        return true
     }
 }
 

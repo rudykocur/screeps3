@@ -90,19 +90,26 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
             })
         }
 
+        if(!this.roomAnalyst) {
+            return
+        }
+
         const tt = this.findTasks(MinimalEnergyWorker)
 
-        if(tt.length === 0 && this.creeps.length <= 1) {
-            this.doLevel0()
-        }
-        else {
-            this.doLevel1()
-        }
+        this.doLevel1()
 
         this.spawner.run()
     }
 
     doLevel1() {
+        if(!this.roomAnalyst) {
+            return
+        }
+
+        if(this.roomAnalyst.isRoomAtCritical()) {
+            this.doLevel0()
+        }
+
         this.manageMiners(2)
         this.manageHaulers(2)
         this.manageBuilders(1)
@@ -110,19 +117,17 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     }
 
     doLevel0() {
+        if(!this.roomAnalyst || !this.needGenerator) {
+            return
+        }
+
         const baseCreeps = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_GENERIC)
 
-        if(baseCreeps.length === 0) {
+        if(baseCreeps.length < 1) {
             this.spawner.enqueue(new GenericCreepTemplate(this));
         }
 
-        if(baseCreeps.length === 1) {
-            this.scheduleBackgroundTask(MinimalEnergyWorker, {
-                actor: baseCreeps[0],
-                source: this.sources[0],
-                room: this,
-            })
-        }
+        this.needGenerator.assignTasks(baseCreeps)
     }
 
     getStructuresNeedingEnergy(): StructureWithEnergyStorage[] {

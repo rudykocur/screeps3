@@ -61,6 +61,6 @@ export class MoveTask extends PersistentTask<MoveTaskMemory, MoveTaskArgs> {
     }
 
     toString() {
-        return `[MoveTask ${this.taskId} actor=${this.actor} target=${this.target}]`
+        return `[MoveTask ${this.taskId} actor=${this.actor} target=${this.target}, range=${this.range}]`
     }
 }

@@ -3,16 +3,19 @@ import { RoomManager } from "tasks/RoomManager"
 import { UpgradeControllerTask } from "tasks/UpgradeControllerTask"
 import { WithdrawEnergy } from "tasks/WithdrawEnergy"
 import { Need, NeedGenerator, LOWEST_PRIORITY, NeedsProvider } from "./NeedGenerator"
+import { Optional } from "types"
+import { RoomAnalyst } from "tasks/RoomAnalyst"
 
 export class GenericNeedsProvider implements NeedsProvider {
 
     constructor(
         private generator: NeedGenerator,
-        private room: RoomManager
+        private room: RoomManager,
+        private analyst: RoomAnalyst,
     ) {}
 
     generate(): Need[] {
-        const storedEnergy = this.room.getRoomAnalyst()?.getStorage()?.getResourceAmount(RESOURCE_ENERGY)
+        const storedEnergy = this.analyst.getStorage()?.getResourceAmount(RESOURCE_ENERGY)
 
         if(!storedEnergy || storedEnergy < 300) {
             return []
@@ -23,6 +26,9 @@ export class GenericNeedsProvider implements NeedsProvider {
         ]
     }
 
+    isActive() {
+        return !this.analyst.isRoomAtCritical()
+    }
 }
 
 export class UpgradeControllerNeed implements Need {

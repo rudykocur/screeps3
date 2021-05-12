@@ -1,7 +1,6 @@
 import { GenericTask } from "TaskManager"
 import { Optional } from "types"
-import { ReservationChunk, ReservationMemory, ReservationManager, ReservableHandler } from "./ReservationManager"
-
+import { ReservationChunk, ReservationMemory, ReservableHandler, IReservationManager } from "./common"
 
 interface ResourceReservationChunk extends ReservationChunk {
     amount: number
@@ -12,13 +11,13 @@ interface ResourceReservationMemory extends ReservationMemory {
     chunks: ResourceReservationChunk[]
 }
 
-@ReservationManager.registerReservationHandler
+@IReservationManager.registerReservationHandler
 export class ResourceReservation implements ReservableHandler {
 
     private resource?: Optional<Resource>
     private reservedChunks: ResourceReservationChunk[]
 
-    constructor(private manager: ReservationManager) {}
+    constructor(private manager: IReservationManager) {}
 
     initMemory(target: Resource): ResourceReservationMemory {
         return {

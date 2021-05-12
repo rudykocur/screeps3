@@ -1,4 +1,4 @@
-import { CreepRole, CREEP_ROLE_HAULER } from "../constants"
+import { CreepRole, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER } from "../constants"
 import { DepositEnergy } from "tasks/DepositEnergy"
 import { LoadEnergyTask } from "tasks/LoadEnergyTask"
 import { RoomManager } from "tasks/RoomManager"
@@ -9,18 +9,23 @@ import { notEmpty } from "utils/common"
 
 export class EmptyContainerNeedProvider implements NeedsProvider {
 
-    private analyst?: Optional<RoomAnalyst>
+    protected roles?: CreepRole[] = undefined
 
     constructor(
         private generator: NeedGenerator,
-        private room: RoomManager
-    ) {
-        this.analyst = this.room?.getRoomAnalyst()
-    }
+        private room: RoomManager,
+        protected analyst: RoomAnalyst
+    ) {}
 
     generate(): Need[] {
+        const storage = this.analyst.getStorage()
+
+        if(storage && storage.getResourceAmount(RESOURCE_ENERGY) + 400 >= storage.getCapacity()) {
+            return []
+        }
+
         return this.analyst
-            ?.getMiningSites()
+            .getMiningSites()
             .map(site => site.container)
             .filter(notEmpty)
             .filter(container => {
@@ -33,12 +38,28 @@ export class EmptyContainerNeedProvider implements NeedsProvider {
                     this.room,
                     {
                         amount: container.store.getUsedCapacity(),
-                        container: container
+                        container: container,
+                        roles: this.roles
                     }
                 )
             }) || []
     }
 
+    isActive() {
+        return true
+    }
+}
+
+export class EmptyContainerAtCriticalNeedProvider extends EmptyContainerNeedProvider {
+    roles = [CREEP_ROLE_GENERIC]
+
+    isActive() {
+        if(!this.analyst) {
+            return false
+        }
+
+        return this.analyst.isRoomAtCritical()
+    }
 }
 
 export class EmptyContainerNeed implements ResourceTransferNeed {
@@ -51,13 +72,17 @@ export class EmptyContainerNeed implements ResourceTransferNeed {
     constructor(
         private generator: NeedGenerator,
         private room: RoomManager,
-        {amount, container}: {
+        {amount, container, roles}: {
             amount: number,
-            container: StructureContainer
+            container: StructureContainer,
+            roles?: CreepRole[]
         }
         ) {
             this.amount = amount
             this.container = container
+            if(roles) {
+                this.roles = roles
+            }
         }
 
     generate(actor: Creep) {

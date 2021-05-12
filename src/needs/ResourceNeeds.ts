@@ -27,6 +27,10 @@ export class ResourcePickupProvider implements NeedsProvider {
                 )
             })
     }
+
+    isActive() {
+        return true
+    }
 }
 
 export class ResourcePickupNeed implements ResourceTransferNeed {
