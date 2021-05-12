@@ -128,6 +128,10 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
         this.taskManager.delayTask(this, ticks)
     }
 
+    registerReservation(reservationId: string) {
+        this.taskManager.registerReservation(this, reservationId)
+    }
+
     abstract initMemory(args: IA): M
     doPreInit() {}
     abstract doInit(): void

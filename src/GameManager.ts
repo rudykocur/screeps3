@@ -1,6 +1,7 @@
 import { TaskManager } from "TaskManager";
 import { counter } from "GlobalCounter";
 import { RoomManager } from "tasks/RoomManager";
+import { ReservationManager } from "tasks/reservation/ReservationManager";
 
 export class GameManager {
     private rooms: RoomManager[];
@@ -19,6 +20,15 @@ export class GameManager {
 
         this.taskManager.loadPersistedTasks()
         this.taskManager.preInit()
+
+        const reservationManagers = this.taskManager.findTasks(ReservationManager)
+
+        if(reservationManagers.length === 0) {
+            Game.reservationManager = this.taskManager.scheduleTask(ReservationManager, {})
+        }
+        else {
+            Game.reservationManager = reservationManagers[0]
+        }
 
         const tasks = this.taskManager.findTasks(RoomManager);
 

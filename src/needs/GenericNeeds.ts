@@ -48,4 +48,8 @@ export class UpgradeControllerNeed implements Need {
     calculateCost(actor: Creep) {
         return LOWEST_PRIORITY
     }
+
+    toString() {
+        return `[UpgradeControllerNeed room=${this.room.name}]`
+    }
 }

@@ -339,6 +339,17 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     doVisualize() {
         for(const site of this.miningSites) {
             this.room.visual.circle(site.containerPos)
+            if(site.container) {
+                const reservations = Game.reservationManager.getHandler(site.container)
+
+                if(reservations && reservations.getReservedAmount() > 0) {
+                    const msg = `${reservations.getReservedAmount()}/${site.container.store.getUsedCapacity()}`
+                    this.room.visual.text(msg, site.source.pos, {
+                        stroke: 'black',
+                        color: 'white',
+                    })
+                }
+            }
         }
 
         for(const source of this.safeSources) {

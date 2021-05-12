@@ -23,7 +23,10 @@ export class EmptyContainerNeedProvider implements NeedsProvider {
             ?.getMiningSites()
             .map(site => site.container)
             .filter(notEmpty)
-            .filter(container => container.store.getUsedCapacity() > 100)
+            .filter(container => {
+                const reserved = Game.reservationManager.getHandler(container)?.getReservedAmount() || 0
+                return container.store.getUsedCapacity() - reserved > 100
+            })
             .map(container => {
                 return new EmptyContainerNeed(
                     this.generator,
@@ -77,5 +80,9 @@ export class EmptyContainerNeed implements ResourceTransferNeed {
         }
 
         return actor.pos.getRangeTo(this.container) + this.container.pos.getRangeTo(storeLocation)
+    }
+
+    toString() {
+        return `[EmptyContainerNeed site=${this.container}]`
     }
 }

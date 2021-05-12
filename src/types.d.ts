@@ -4,6 +4,7 @@ import { CreepRole } from "./constants";
 import { GameManager } from "GameManager";
 import { TaskManager } from "TaskManager";
 import { AbstractTask } from "tasks/AbstractTask";
+import { ReservationManager } from "tasks/reservation/ReservationManager";
 
 interface TaskMemory {}
 
@@ -16,7 +17,8 @@ interface TaskRuntimeData {
     taskId: string
     data: TaskMemory
     suspended?: boolean
-    sleepUntil?: number
+    sleepUntil?: number,
+    reservations?: string[],
 }
 
 type Optional<T> = T | null
@@ -46,5 +48,6 @@ declare global {
 
     interface Game {
         manager: GameManager
+        reservationManager: ReservationManager
     }
 }

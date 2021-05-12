@@ -85,16 +85,22 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
         const tasks = this.getChildTasks()
 
         const jobless = actors.filter(creep =>
-            tasks.find(job => 'getActorId' in job && job.getActorId() === creep.id) === undefined
+            tasks.find(job => {
+                if(!('getActorId' in job)) {
+                    console.log(`<span style="color: red">Task ${job} does not have actorId!!!</span>`)
+                }
+                return 'getActorId' in job && job.getActorId() === creep.id
+            }) === undefined
         )
 
         if(jobless.length === 0) {
             return
         }
 
-        // console.log(this, `<span style="color: yellow">assigning tasks to ${jobless.length} actors with role [${role}] ...</span>`)
-
         const needs = this.generateNeeds()
+
+        // console.log(this, `<span style="color: yellow">assigning tasks to ${jobless.length} actors with role [${role}] ...</span>`)
+        // console.log(this, `generated needs (${needs.length}): ${needs}`)
 
         for(const actor of jobless) {
 
@@ -125,7 +131,6 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
         }
 
         if(!this._needs) {
-            // console.log(this, '<span style="color: orange">generating needs ...</span>')
             this._needs = this.providers.map(provider => provider.generate()).reduce((a, b) => a.concat(b));
         }
 

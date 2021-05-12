@@ -43,6 +43,9 @@ export class PickupResourceTask extends PersistentTask<PickupResourceMemory, Pic
             this.actor.pickup(this.resource)
         }
         else {
+            const carry = this.actor.store.getCapacity()
+            Game.reservationManager.getHandler(this.resource)?.reserve(this, carry)
+
             this.scheduleBlockingTask(MoveTask, {
                 actor: this.actor,
                 target: this.resource.pos,

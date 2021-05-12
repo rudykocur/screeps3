@@ -1,3 +1,4 @@
+import { TaskWithActor } from "TaskManager";
 import { StructureWithEnergyStorage, StructureWithGeneralStorage } from "types";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { MoveTask } from "./MoveTask";
@@ -17,7 +18,7 @@ interface TransferResourceArgs {
 }
 
 @PersistentTask.register
-export class TransferResourceTask extends PersistentTask<TransferResourceMemory, TransferResourceArgs> {
+export class TransferResourceTask extends PersistentTask<TransferResourceMemory, TransferResourceArgs> implements TaskWithActor {
     private actor?: Creep | null
     private structure?: StructureWithEnergyStorage | null
     private container?: StructureWithGeneralStorage | null
@@ -65,6 +66,10 @@ export class TransferResourceTask extends PersistentTask<TransferResourceMemory,
                 range: 1,
             })
         }
+    }
+
+    getActorId() {
+        return this.actor?.id
     }
 
     toString() {

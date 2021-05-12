@@ -85,4 +85,8 @@ export class EnergyRefillNeed implements Need {
         return (actor.pos.getRangeTo(storeLocation) + storeLocation.getRangeTo(this.extension)) * this.weight
     }
 
+    toString() {
+        return `[EnergyRefillNeed extension=${this.extension}]`
+    }
+
 }

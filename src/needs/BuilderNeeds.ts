@@ -71,4 +71,8 @@ export class BuildSiteNeed implements Need {
 
         return actor.pos.getRangeTo(storeLocation) + storeLocation.getRangeTo(this.site)
     }
+
+    toString() {
+        return `[BuildSiteNeed site=${this.site}]`
+    }
 }

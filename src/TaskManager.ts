@@ -86,26 +86,31 @@ export class TaskManager {
                 const taskId = task.getTaskId();
                 const taskData = this.memory[taskId];
 
-                if(taskData.suspended) {
-                    continue;
-                }
-
-                if(taskData.sleepUntil) {
-                    if(taskData.sleepUntil > Game.time) {
-                        continue
+                try {
+                    if(taskData.suspended) {
+                        continue;
                     }
-                    else {
-                        delete taskData.sleepUntil
+
+                    if(taskData.sleepUntil) {
+                        if(taskData.sleepUntil > Game.time) {
+                            continue
+                        }
+                        else {
+                            delete taskData.sleepUntil
+                        }
                     }
+
+                    const result = task.run();
+
+                    if(result === RunResult.DONE) {
+                        this.handleFinshedTask(task)
+                    }
+
+                    i++;
                 }
-
-                const result = task.run();
-
-                if(result === RunResult.DONE) {
-                    this.handleFinshedTask(task)
+                catch(e) {
+                    console.log('<span style="background: red; color: white">FAILED TO RUN TASK</span>', task, '::', e)
                 }
-
-                i++;
             }
         }
 
@@ -116,6 +121,8 @@ export class TaskManager {
         for(const task of Object.values(this.taskMap)) {
             task.visualize();
         }
+
+        this.doVisualize()
     }
 
     handleFinshedTask(task: GenericTask) {
@@ -140,7 +147,12 @@ export class TaskManager {
             }
         }
 
-        console.log("[TaskManager] finished", task);
+        console.log(`[TaskManager] ${taskId} finished`, task);
+
+        if(taskData.reservations !== undefined) {
+            Game.reservationManager.freeReservations(taskData.reservations)
+        }
+
         delete this.memory[taskId];
     }
 
@@ -223,12 +235,67 @@ export class TaskManager {
         return (x as T[])
     }
 
+    registerReservation(task: GenericTask, reservationId: string) {
+        const taskId = task.getTaskId()
+
+        const taskData = this.memory[taskId]
+
+        if(taskData.reservations === undefined) {
+            taskData.reservations = []
+        }
+
+        taskData.reservations.push(reservationId)
+    }
+
     terminate(taskId: string) {
         const task = this.taskMap[taskId]
         this.handleFinshedTask(task)
     }
 
+    doVisualize() {
+        const topTasks = Object.values(this.taskMap).filter(task => {
+            const taskData = this.memory[task.getTaskId()]
+            if(!taskData) {
+                return false
+            }
+
+            return taskData.parentTask === undefined
+        })
+
+        const result: TaskTreeEntry[] = []
+
+        for(const task of topTasks) {
+            this.showTaskData(task, '', result)
+        }
+
+        let topOffset = 0
+        result.forEach((entry, index) => {
+            Game.rooms['sim'].visual.text(entry.text, 0, topOffset + index, {
+                color: entry.color || 'white',
+                stroke: 'black',
+                align: "left",
+            })
+        })
+    }
+
+    private showTaskData(task: GenericTask, indent: string, target: TaskTreeEntry[]) {
+        const taskData = this.memory[task.getTaskId()]
+
+        target.push({
+            text: indent + task.toString(),
+            color: taskData?.suspended ? 'gray' : undefined
+        })
+        for(const child of task.getChildTasks()) {
+            this.showTaskData(child, indent + '   ', target)
+        }
+    }
+
     toString() {
         return `[TaskManager]`
     }
+}
+
+interface TaskTreeEntry {
+    text: string,
+    color?: string,
 }

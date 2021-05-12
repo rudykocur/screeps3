@@ -62,6 +62,11 @@ export class LoadEnergyTask extends PersistentTask<LoadEnergyMemory, LoadEnergyA
             this.actor.withdraw(target, RESOURCE_ENERGY, this.amount)
         }
         else {
+            if(this.container) {
+                const carry = this.actor.store.getCapacity()
+                Game.reservationManager.getHandler(this.container)?.reserve(this, carry)
+            }
+
             this.scheduleBlockingTask(MoveTask, {
                 actor: this.actor,
                 target: target.pos,

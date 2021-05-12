@@ -61,4 +61,8 @@ export class MineSourceNeed implements Need {
     calculateCost(actor: Creep) {
         return 0
     }
+
+    toString() {
+        return `[MineSourceNeed source=${this.source}]`
+    }
 }

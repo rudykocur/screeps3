@@ -11,16 +11,21 @@ export class ResourcePickupProvider implements NeedsProvider {
     ) {}
 
     generate(): Need[] {
-        return this.room.getDroppedResources().map(resource => {
-            return new ResourcePickupNeed(
-                this.generator,
-                this.room,
-                 {
-                     amount: resource.amount,
-                     resource: resource
-                 }
-            )
-        })
+        return this.room.getDroppedResources()
+            .filter(resource => {
+                const reserved = Game.reservationManager.getHandler(resource)?.getReservedAmount() || 0
+                return resource.amount - reserved > 100
+            })
+            .map(resource => {
+                return new ResourcePickupNeed(
+                    this.generator,
+                    this.room,
+                    {
+                        amount: resource.amount,
+                        resource: resource
+                    }
+                )
+            })
     }
 }
 
@@ -62,5 +67,9 @@ export class ResourcePickupNeed implements ResourceTransferNeed {
         }
 
         return actor.pos.getRangeTo(this.resource) + this.resource.pos.getRangeTo(storeLocation)
+    }
+
+    toString() {
+        return `[ResourcePickupNeed resource=${this.resource}]`
     }
 }
