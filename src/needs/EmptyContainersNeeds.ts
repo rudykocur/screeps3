@@ -20,7 +20,7 @@ export class EmptyContainerNeedProvider implements NeedsProvider {
     generate(): Need[] {
         const storage = this.analyst.getStorage()
 
-        if(storage && storage.getResourceAmount(RESOURCE_ENERGY) + 400 >= storage.getCapacity()) {
+        if(!storage || storage.isFull()) {
             return []
         }
 

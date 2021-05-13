@@ -44,6 +44,10 @@ export class RoomStorageWrapper {
         public storage?: StructureStorage | null
     ) {}
 
+    isConstructed() {
+        return !!this.container || !!this.storage
+    }
+
     getResourceAmount(resource: ResourceConstant): number {
         if(this.container) {
             return this.container.store[resource]
@@ -68,7 +72,25 @@ export class RoomStorageWrapper {
     }
 
     isFull() {
+        if(!this.storage && !this.container) {
+            return false
+        }
+
         return this.getResourceAmount(RESOURCE_ENERGY) === this.getCapacity()
+    }
+
+    isEmpty() {
+        if(!this.storage && !this.container) {
+            const resources = this.location.lookFor(LOOK_RESOURCES)
+            for(let res of resources) {
+                if(res.amount > 0) {
+                    return false
+                }
+            }
+            return true
+        }
+
+        return this.getResourceAmount(RESOURCE_ENERGY) === 0
     }
 }
 
@@ -401,6 +423,12 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     getExtensions() {
         return this.extensions
+    }
+
+    getDroppedResources() {
+        return this.room
+            .find(FIND_DROPPED_RESOURCES)
+            .filter(res => res.amount > 100)
     }
 
     isRoomAtCritical() {

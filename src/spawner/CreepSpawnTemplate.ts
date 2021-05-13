@@ -7,10 +7,14 @@ export interface CreepSpawnTemplate {
 }
 
 export class GenericCreepTemplate implements CreepSpawnTemplate {
-    constructor(private room: RoomManager) {}
+    constructor(private room: RoomManager, private emergency: boolean = false) {}
 
     getBodyParts(): BodyPartConstant[] {
-        return [MOVE, MOVE, CARRY, WORK];
+        if(this.emergency) {
+            return [MOVE, MOVE, CARRY, WORK];
+        }
+
+        return build([MOVE, CARRY, WORK], this.room.getMaxSpawnPower());
     }
 
     getMemory(): CreepMemory {

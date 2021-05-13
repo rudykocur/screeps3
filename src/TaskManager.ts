@@ -269,8 +269,16 @@ export class TaskManager {
         }
 
         let topOffset = 0
+
+        let room: Room
+        if(Game.rooms.sim) {
+            room = Game.rooms.sim
+        } else {
+            room = Object.values(Game.rooms)[0]
+        }
+
         result.forEach((entry, index) => {
-            Game.rooms['sim'].visual.text(entry.text, 0, topOffset + index, {
+            room.visual.text(entry.text, 0, topOffset + index, {
                 color: entry.color || 'white',
                 stroke: 'black',
                 align: "left",

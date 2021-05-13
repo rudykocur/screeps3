@@ -3,14 +3,22 @@ import { DepositEnergy } from "tasks/DepositEnergy"
 import { PickupResourceTask } from "tasks/PickupResource"
 import { RoomManager } from "tasks/RoomManager"
 import { ResourceTransferNeed, NeedGenerator, LOWEST_PRIORITY, NeedsProvider, Need } from "./NeedGenerator"
+import { RoomAnalyst } from "tasks/RoomAnalyst"
 
 export class ResourcePickupProvider implements NeedsProvider {
     constructor(
         private generator: NeedGenerator,
-        private room: RoomManager
+        private room: RoomManager,
+        private analyst: RoomAnalyst,
     ) {}
 
     generate(): Need[] {
+        const storage = this.analyst.getStorage()
+
+        if(!storage || storage.isFull()) {
+            return []
+        }
+
         return this.room.getDroppedResources()
             .filter(resource => {
                 const reserved = Game.reservationManager.getHandler(resource)?.getReservedAmount() || 0
@@ -39,6 +47,8 @@ export class ResourcePickupNeed implements ResourceTransferNeed {
 
     public amount: number
     public resource: Resource
+
+    public weight: number = 0.8
 
     constructor(
         private generator: NeedGenerator,
@@ -70,7 +80,7 @@ export class ResourcePickupNeed implements ResourceTransferNeed {
             return LOWEST_PRIORITY
         }
 
-        return actor.pos.getRangeTo(this.resource) + this.resource.pos.getRangeTo(storeLocation)
+        return (actor.pos.getRangeTo(this.resource) + this.resource.pos.getRangeTo(storeLocation)) * this.weight
     }
 
     toString() {

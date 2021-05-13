@@ -112,8 +112,8 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
         this.manageMiners(2)
         this.manageHaulers(2)
-        this.manageBuilders(1)
-        this.manageGeneric(2)
+        this.manageBuilders(2)
+        this.manageGeneric(3)
     }
 
     doLevel0() {
@@ -124,7 +124,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         const baseCreeps = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_GENERIC)
 
         if(baseCreeps.length < 1) {
-            this.spawner.enqueue(new GenericCreepTemplate(this));
+            this.spawner.enqueue(new GenericCreepTemplate(this, true));
         }
 
         this.needGenerator.assignTasks(baseCreeps)
@@ -142,12 +142,12 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         });
     }
 
-    getDroppedResources() {
+    getDroppedResources(withStorage: boolean = false) {
         const tempStorage = this.temporaryStoragePosition;
 
         return this.room.find(FIND_DROPPED_RESOURCES).filter(
             resource => {
-                if(tempStorage && tempStorage.isEqualTo(resource)) {
+                if(!withStorage && tempStorage && tempStorage.isEqualTo(resource)) {
                     return false
                 }
 

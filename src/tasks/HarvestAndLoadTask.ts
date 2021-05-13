@@ -1,3 +1,4 @@
+import { TaskWithActor } from "TaskManager";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { MoveTask } from "./MoveTask";
 import { PersistentTask } from "./PersistentTask";
@@ -13,7 +14,7 @@ interface HarvestAndLoadArgs {
 }
 
 @PersistentTask.register
-export class HarvestAndLoadTask extends PersistentTask<HarvestAndLoadMemory, HarvestAndLoadArgs> {
+export class HarvestAndLoadTask extends PersistentTask<HarvestAndLoadMemory, HarvestAndLoadArgs> implements TaskWithActor {
     private actor?: Creep | null;
     private source: Source;
 
@@ -53,6 +54,9 @@ export class HarvestAndLoadTask extends PersistentTask<HarvestAndLoadMemory, Har
         }
     }
 
+    getActorId() {
+        return this.actor?.id
+    }
 
     toString() {
         return `[HarvestAndLoadTasks actor=${this.actor} source=${this.source}]`

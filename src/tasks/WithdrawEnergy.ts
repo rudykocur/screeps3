@@ -59,6 +59,13 @@ export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, Withdra
             return
         }
 
+        if(!this.amount && storage.isEmpty()) {
+            return RunResult.DONE
+        }
+        if(this.amount && storage.getResourceAmount(RESOURCE_ENERGY) < this.amount) {
+            return RunResult.DONE
+        }
+
         const target = storage.storage || storage.container
 
         if(target) {

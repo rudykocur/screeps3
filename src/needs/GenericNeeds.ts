@@ -5,6 +5,8 @@ import { WithdrawEnergy } from "tasks/WithdrawEnergy"
 import { Need, NeedGenerator, LOWEST_PRIORITY, NeedsProvider } from "./NeedGenerator"
 import { Optional } from "types"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
+import { HarvestAndLoadTask } from "tasks/HarvestAndLoadTask"
+import { DepositEnergy } from "tasks/DepositEnergy"
 
 export class GenericNeedsProvider implements NeedsProvider {
 
@@ -17,7 +19,7 @@ export class GenericNeedsProvider implements NeedsProvider {
     generate(): Need[] {
         const storedEnergy = this.analyst.getStorage()?.getResourceAmount(RESOURCE_ENERGY)
 
-        if(!storedEnergy || storedEnergy < 300) {
+        if(!storedEnergy || storedEnergy < 1000) {
             return []
         }
 
@@ -28,6 +30,64 @@ export class GenericNeedsProvider implements NeedsProvider {
 
     isActive() {
         return !this.analyst.isRoomAtCritical()
+    }
+}
+
+export class HarvestEnergyAtCriticalNeedsProvider implements NeedsProvider {
+
+    constructor(
+        private generator: NeedGenerator,
+        private room: RoomManager,
+        private analyst: RoomAnalyst,
+    ) {}
+
+    generate(): Need[] {
+        return this.analyst.getSafeSources().map(source => {
+            return new HarvestEnergyNeed(this.generator, this.room, {
+                source: source
+            })
+        })
+    }
+
+    isActive() {
+        return this.analyst.isRoomAtCritical()
+    }
+}
+
+export class HarvestEnergyNeed implements Need {
+    roles: CreepRole[] = [CREEP_ROLE_GENERIC]
+    infinite = false
+
+    private source: Source
+
+    constructor(
+        private generator: NeedGenerator,
+        private room: RoomManager,
+        {source}: {
+            source: Source
+        }) {
+            this.source = source
+        }
+
+    generate(actor: Creep) {
+        const parent = this.generator.scheduleBackgroundTask(DepositEnergy, {
+            actor: actor,
+            room: this.room,
+        })
+
+        this.generator.scheduleChildTask(parent, HarvestAndLoadTask, {
+            actor: actor,
+            source: this.source,
+
+        })
+    }
+
+    calculateCost(actor: Creep) {
+        return actor.pos.getRangeTo(this.source)
+    }
+
+    toString() {
+        return `[HarvestEnergyNeed source=${this.source}]`
     }
 }
 

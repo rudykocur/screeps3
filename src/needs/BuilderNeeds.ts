@@ -5,6 +5,7 @@ import { WithdrawEnergy } from "tasks/WithdrawEnergy"
 import { LOWEST_PRIORITY, Need, NeedGenerator, NeedsProvider } from "./NeedGenerator"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
 import { Optional } from "types"
+import { PickupResourceTask } from "tasks/PickupResource"
 
 export class BuildNeedProvider implements NeedsProvider {
 
@@ -15,15 +16,16 @@ export class BuildNeedProvider implements NeedsProvider {
     ) {}
 
     generate(): Need[] {
+        const storage = this.analyst.getStorage()
         const storedEnergy = this.analyst.getStorage()?.getResourceAmount(RESOURCE_ENERGY)
 
-        if(!storedEnergy || storedEnergy < 300) {
+        if(storage?.isConstructed() && (!storedEnergy || storedEnergy < 600)) {
             return []
         }
 
         return this.analyst
             .getConstructionSites()
-            .map(site => new BuildSiteNeed(this.generator, this.room, {site: site})) || []
+            .map(site => new BuildSiteNeed(this.generator, this.room, this.analyst, {site: site})) || []
     }
 
     isActive() {
@@ -41,6 +43,7 @@ export class BuildSiteNeed implements Need {
     constructor(
         private generator: NeedGenerator,
         private room: RoomManager,
+        private analyst: RoomAnalyst,
         {site}: {
             site: ConstructionSite
         }) {
@@ -53,10 +56,27 @@ export class BuildSiteNeed implements Need {
             site: this.site
         })
 
-        this.generator.scheduleChildTask(parent, WithdrawEnergy, {
-            actor: actor,
-            room: this.room
-        })
+        const storage = this.analyst.getStorage()
+
+        if(this.analyst.getStorage()?.isConstructed()) {
+            this.generator.scheduleChildTask(parent, WithdrawEnergy, {
+                actor: actor,
+                room: this.room
+            })
+        }
+        else {
+            const resources = this.room.getDroppedResources(true)
+
+            if(resources.length > 0) {
+                const nearest = actor.pos.findClosestByRange(resources);
+                this.generator.scheduleChildTask(parent, PickupResourceTask, {
+                    actor: actor,
+                    resource: nearest
+                })
+            }
+        }
+
+
     }
 
     calculateCost(actor: Creep) {
