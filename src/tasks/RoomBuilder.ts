@@ -121,7 +121,7 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
         for(const cluster of clusters) {
             for(const spot of cluster.freeSpots) {
 
-                if(isBuildable(spot)) {
+                if(!isBuildable(spot)) {
                     continue
                 }
 

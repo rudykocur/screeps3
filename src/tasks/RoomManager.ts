@@ -117,7 +117,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         this.manageBuilders(2)
         this.manageGeneric(1)
         this.manageHaulers(3)
-        this.manageGeneric(3)
+        this.manageGeneric(5)
     }
 
     doLevel0() {

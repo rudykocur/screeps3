@@ -353,7 +353,9 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     }
 
     private analyzeExtensionClusters() {
-        const clusterFlags = Object.values(Game.flags).filter(flag => flag.pos.roomName === this.room.name)
+        const clusterFlags = Object.values(Game.flags).filter(flag =>
+            flag.pos.roomName === this.room.name && flag.color === COLOR_YELLOW && flag.secondaryColor === COLOR_GREEN
+        )
 
         this.extensionClusters = clusterFlags.map(flag => {
             const alignTarget = new RoomPosition(flag.pos.x, Math.max(0, flag.pos.y-5), flag.pos.roomName)
