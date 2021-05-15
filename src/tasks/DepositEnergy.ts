@@ -68,12 +68,18 @@ export class DepositEnergy extends PersistentTask<DepositEnergyMemory, DepositEn
             return
         }
 
-        if(storage.container) {
+        if(storage.isConstructed()) {
             if(storage.isFull()) {
                 return RunResult.DONE
             }
 
-            if(storage.container.store.getFreeCapacity() > 0) {
+            if(storage.storage) {
+                this.scheduleBlockingTask(TransferResourceTask, {
+                    actor: this.actor,
+                    container: storage.storage
+                })
+            }
+            if(storage.container) {
                 this.scheduleBlockingTask(TransferResourceTask, {
                     actor: this.actor,
                     container: storage.container

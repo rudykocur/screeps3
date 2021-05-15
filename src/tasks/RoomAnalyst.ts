@@ -3,7 +3,7 @@ import { RoomManager } from "./RoomManager";
 import { PersistentTask } from "./PersistentTask";
 import { getPositionsAround } from "../utils/MapUtils"
 import { packPos, unpackPos } from "../utils/packrat"
-import { notEmpty } from "utils/common";
+import { isBuildable, notEmpty } from "utils/common";
 import { CREEP_ROLE_MINER, CREEP_ROLE_HAULER } from "../constants";
 
 interface RoomAnalystMemory {
@@ -13,11 +13,20 @@ interface RoomAnalystMemory {
     safeSources?: Id<Source>[]
     constructionSites?: Id<ConstructionSite>[]
     extensions?: Id<StructureExtension>[]
+    extensionClusters?: {
+        center: string,
+        spots: string[],
+        extensionsIds: Id<StructureExtension>[]
+    }[],
     storage?: {
         location: string
         containerId?: Id<StructureContainer>
         id?: Id<StructureStorage>
-    }
+    },
+    toRepair?: {
+        id: Id<Structure>
+        percent: number
+    }[]
 }
 
 interface MiningSiteMemory {
@@ -34,6 +43,32 @@ interface MiningSite {
     source: Source
     container?: StructureContainer | null
     containerPos: RoomPosition
+}
+
+export class ExtensionCluster {
+    public id: string
+
+    constructor(
+        public center: RoomPosition,
+        public freeSpots: RoomPosition[],
+        public extensions: StructureExtension[],
+    ) {
+        this.id = 'extension-'+packPos(this.center)
+    }
+
+    getMissingEnergyAmount() {
+        return this.extensions
+            .map(extension => extension.store.getFreeCapacity(RESOURCE_ENERGY) || 0)
+            .reduce((sum, current) => sum + current, 0)
+    }
+
+    getExtensionsMissingEnergy() {
+        return this.extensions.filter(ext => ext.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
+    }
+
+    toString() {
+        return `[ExtensionCluster center=${this.center} extensions=${this.extensions.length}]`
+    }
 }
 
 export class RoomStorageWrapper {
@@ -103,7 +138,9 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     private safeSources: Source[]
     private constructionSites: ConstructionSite[]
     private extensions: StructureExtension[]
+    private extensionClusters: ExtensionCluster[]
     private creeps: Creep[]
+    private toRepair: Structure[]
 
     private storage?: RoomStorageWrapper | null
 
@@ -113,7 +150,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         }
     }
 
-    doInit(): void {
+    doPreInit(): void {
         this.room = Game.rooms[this.memory.roomName]
 
         this.miningSites = []
@@ -143,6 +180,19 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             ?.map(extensionId => Game.getObjectById(extensionId))
             ?.filter(notEmpty) || []
 
+        this.extensionClusters = this.memory.extensionClusters?.map(cluster => {
+            return new ExtensionCluster(
+                unpackPos(cluster.center),
+                cluster.spots.map(pos => unpackPos(pos)),
+                cluster.extensionsIds.map(id => Game.getObjectById(id)).filter(notEmpty)
+            )
+        }) || []
+
+        this.toRepair = this.memory.toRepair
+            ?.sort((a, b) => a.percent - b.percent)
+            ?.map(data => Game.getObjectById(data.id))
+            ?.filter(notEmpty) || []
+
         if(this.memory.storage) {
             this.storage = new RoomStorageWrapper(
                 unpackPos(this.memory.storage.location),
@@ -154,6 +204,8 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         this.creeps = this.room.find(FIND_MY_CREEPS)
     }
 
+    doInit() {}
+
     doRun(): RunResultType {
         console.log(this, 'Running analysis ...')
 
@@ -162,6 +214,8 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         this.analyzeMiningSites()
         this.analyzeConstructionSites()
         this.analyzeExtensions()
+        this.analyzeExtensionClusters()
+        this.analyzeRepairableObjects()
 
         this.sleep(15)
     }
@@ -286,96 +340,79 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     }
 
     private analyzeConstructionSites() {
-        this.memory.constructionSites = this.room.find(FIND_CONSTRUCTION_SITES).map(site => site.id)
+        this.constructionSites = this.room.find(FIND_CONSTRUCTION_SITES)
+        this.memory.constructionSites = this.constructionSites.map(site => site.id)
     }
 
     private analyzeExtensions() {
-        if(!this.room.controller) {
-            return
-        }
-
-        const spawn = this.room.find<StructureSpawn>(FIND_MY_STRUCTURES, {
-            filter: struct => struct.structureType === STRUCTURE_SPAWN
-        })[0]
 
         const extensions = this.room.find<StructureExtension>(FIND_MY_STRUCTURES, {
             filter: struct => struct.structureType === STRUCTURE_EXTENSION
         });
         this.memory.extensions = extensions.map(ext => ext.id)
-
-        const exisingExtensionsAmount = extensions.length
-
-        const extensionsInConstruction = this.room.find(FIND_CONSTRUCTION_SITES, {
-            filter: site => site.structureType === STRUCTURE_EXTENSION
-        }).length
-
-        const maxExtensions = CONTROLLER_STRUCTURES[STRUCTURE_EXTENSION][this.room.controller.level]
-
-        if(exisingExtensionsAmount + extensionsInConstruction >= maxExtensions) {
-            return
-        }
-
-        let buildSize = Math.ceil(Math.sqrt((maxExtensions)*2))
-        if(buildSize % 2 === 0) {
-            buildSize += 1
-        }
-
-        this.room.visual.rect(spawn.pos.x - buildSize/2, spawn.pos.y - buildSize/2, buildSize, buildSize)
-
-        let placedExtensions = 0
-
-        const baseLeft = spawn.pos.x - (buildSize-1)/2
-        const baseTop = spawn.pos.y - (buildSize-1)/2
-
-        this.room.visual.circle(baseLeft, baseTop)
-
-        for(let i = 0; i < buildSize; i++) {
-            for(let j = 0; j < buildSize; j++) {
-                const pos = new RoomPosition(baseLeft + j, baseTop + i, spawn.pos.roomName)
-
-                if(!(i%2==1 && j%2==1) && !(i%2==0 && j%2==0)) {
-                    continue
-                }
-
-                if(!this.isBuildable(pos)) {
-                    continue
-                }
-
-                this.room.visual.circle(pos, {
-                    fill: 'green'
-                })
-
-                pos.createConstructionSite(STRUCTURE_EXTENSION)
-
-                placedExtensions++
-
-                if(placedExtensions >= maxExtensions) {
-                    break
-                }
-            }
-
-            if(placedExtensions >= maxExtensions) {
-                break
-            }
-        }
     }
 
-    isBuildable(pos: RoomPosition): boolean {
-        const elements = pos.look()
+    private analyzeExtensionClusters() {
+        const clusterFlags = Object.values(Game.flags).filter(flag => flag.pos.roomName === this.room.name)
 
-        for(const item of elements) {
-            if(item.terrain === "wall") {
-                return false
-            }
-            if(item.structure) {
-                return false
-            }
-            if(item.constructionSite) {
-                return false
-            }
-        }
+        this.extensionClusters = clusterFlags.map(flag => {
+            const alignTarget = new RoomPosition(flag.pos.x, Math.max(0, flag.pos.y-5), flag.pos.roomName)
 
-        return true
+            const freeSpots = getPositionsAround(flag.pos).filter(pos => {
+                const elements = pos.look()
+
+                for(const item of elements) {
+                    if(item.terrain === "wall") {
+                        return false
+                    }
+                    if(item.constructionSite && item.constructionSite.structureType !== STRUCTURE_EXTENSION) {
+                        return false
+                    }
+                }
+
+                return true
+            })
+            .map(pos => {
+                return {
+                    pos: pos,
+                    distance: pos.getRangeTo(alignTarget)
+                }
+            })
+            .sort((a, b) => {
+                return b.distance - a.distance
+            })
+            .slice(0, 5)
+            .filter(spot => isBuildable(spot.pos))
+
+            const extensions = flag.pos.findInRange<StructureExtension>(FIND_MY_STRUCTURES, 1, {
+                filter: obj => obj.structureType === STRUCTURE_EXTENSION
+            })
+
+            return new ExtensionCluster(flag.pos, freeSpots.map(spot => spot.pos), extensions)
+        })
+
+        this.memory.extensionClusters = this.extensionClusters.map(cluster => {
+            return {
+                center: packPos(cluster.center),
+                spots: cluster.freeSpots.map(pos => packPos(pos)),
+                extensionsIds: cluster.extensions.map(ext => ext.id)
+            }
+        })
+    }
+
+    private analyzeRepairableObjects() {
+        const toRepair = this.room.find(FIND_STRUCTURES)
+
+        this.memory.toRepair = toRepair
+            .filter(obj => (obj.hits/obj.hitsMax) < 0.8)
+            .map(obj => {
+                return {
+                    id: obj.id,
+                    percent: obj.hits/obj.hitsMax
+                }
+            })
+            .sort((a, b) => a.percent - b.percent)
+            .slice(0, 30)
     }
 
     doVisualize() {
@@ -394,9 +431,23 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             }
         }
 
+        for(const cluster of this.extensionClusters) {
+            for(const spot of cluster.freeSpots) {
+                this.room.visual.circle(spot, {
+                    fill: 'yellow'
+                })
+            }
+        }
+
         for(const source of this.safeSources) {
             this.room.visual.circle(source.pos, {
                 fill: "green"
+            })
+        }
+
+        for(const toRepair of this.toRepair) {
+            this.room.visual.circle(toRepair.pos, {
+                fill: 'red'
             })
         }
     }
@@ -425,6 +476,14 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         return this.extensions
     }
 
+    getExtensionClusters() {
+        return this.extensionClusters
+    }
+
+    getToRepair() {
+        return this.toRepair
+    }
+
     getDroppedResources() {
         return this.room
             .find(FIND_DROPPED_RESOURCES)
@@ -435,6 +494,11 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         const miners = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_MINER).length
         const haulers = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_HAULER).length
         return miners < 1 || haulers < 1
+    }
+
+    invalidateConstructionSites() {
+        // this.analyzeConstructionSites()
+        this.wakeUp()
     }
 
     toString() {

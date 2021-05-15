@@ -32,8 +32,6 @@ export class ContainerReservation implements ReservableHandler {
     }
 
     getTargetId() {
-
-        this.container?.structureType
         return this.container?.id
     }
 

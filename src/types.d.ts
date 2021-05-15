@@ -36,9 +36,14 @@ interface RoomPositionJson {
 type StructureWithEnergyStorage = StructureSpawn | StructureExtension
 type StructureWithGeneralStorage = StructureContainer | StructureStorage
 
+interface ConfigOptions {
+    visualizeTaskTree?: boolean
+}
+
 declare global {
     interface Memory {
         tasks?: Record<string, TaskRuntimeData>
+        config?: ConfigOptions
     }
 
     interface CreepMemory {

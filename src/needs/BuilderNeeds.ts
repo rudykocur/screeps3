@@ -6,6 +6,8 @@ import { LOWEST_PRIORITY, Need, NeedGenerator, NeedsProvider } from "./NeedGener
 import { RoomAnalyst } from "tasks/RoomAnalyst"
 import { Optional } from "types"
 import { PickupResourceTask } from "tasks/PickupResource"
+import { GenericTask } from "TaskManager"
+import { RepairTask } from "tasks/RepairTask"
 
 export class BuildNeedProvider implements NeedsProvider {
 
@@ -31,30 +33,45 @@ export class BuildNeedProvider implements NeedsProvider {
     isActive() {
         return true
     }
-
 }
 
-export class BuildSiteNeed implements Need {
-    roles: CreepRole[] = [CREEP_ROLE_BUILDER]
-    infinite = false
-
-    public site: ConstructionSite
-
+export class RepairNeedsProvider implements NeedsProvider {
     constructor(
         private generator: NeedGenerator,
         private room: RoomManager,
         private analyst: RoomAnalyst,
-        {site}: {
-            site: ConstructionSite
-        }) {
-            this.site = site
-        }
+    ) {}
+    generate(): Need[] {
+        return this.analyst.getToRepair().map(obj => new RepairObjectNeed(
+            this.generator,
+            this.room,
+            this.analyst,
+            {
+                target: obj
+            }
+        ))
+    }
+    isActive(): boolean {
+        return !this.analyst.isRoomAtCritical()
+    }
+}
+
+export abstract class DoActionWithEnergyNeed implements Need {
+    roles: CreepRole[] = [CREEP_ROLE_BUILDER]
+    infinite = false
+
+    constructor(
+        protected generator: NeedGenerator,
+        protected room: RoomManager,
+        protected analyst: RoomAnalyst
+    ) {}
+
+    abstract generateParentTask(actor: Creep): GenericTask
+
+    abstract getTargetPos(): RoomPosition
 
     generate(actor: Creep) {
-        const parent = this.generator.scheduleBackgroundTask(BuildTask, {
-            actor: actor,
-            site: this.site
-        })
+        const parent = this.generateParentTask(actor)
 
         const storage = this.analyst.getStorage()
 
@@ -86,10 +103,68 @@ export class BuildSiteNeed implements Need {
             return LOWEST_PRIORITY
         }
 
-        return actor.pos.getRangeTo(storeLocation) + storeLocation.getRangeTo(this.site)
+        return actor.pos.getRangeTo(storeLocation) + storeLocation.getRangeTo(this.getTargetPos())
+    }
+}
+
+export class BuildSiteNeed extends DoActionWithEnergyNeed {
+
+    public site: ConstructionSite
+
+    constructor(
+        generator: NeedGenerator,
+        room: RoomManager,
+        analyst: RoomAnalyst,
+        {site}: {
+            site: ConstructionSite
+        }) {
+            super(generator, room, analyst)
+            this.site = site
+        }
+
+    generateParentTask(actor: Creep) {
+        return this.generator.scheduleBackgroundTask(BuildTask, {
+            actor: actor,
+            site: this.site
+        })
+    }
+
+    getTargetPos() {
+        return this.site.pos
     }
 
     toString() {
         return `[BuildSiteNeed site=${this.site}]`
+    }
+}
+
+export class RepairObjectNeed extends DoActionWithEnergyNeed {
+
+    public target: Structure
+
+    constructor(
+        generator: NeedGenerator,
+        room: RoomManager,
+        analyst: RoomAnalyst,
+        {target}: {
+            target: Structure
+        }) {
+            super(generator, room, analyst)
+            this.target = target
+        }
+
+    generateParentTask(actor: Creep) {
+        return this.generator.scheduleBackgroundTask(RepairTask, {
+            actor: actor,
+            structure: this.target
+        })
+    }
+
+    getTargetPos() {
+        return this.target.pos
+    }
+
+    toString() {
+        return `[RepairObjectNeed target=${this.target}]`
     }
 }

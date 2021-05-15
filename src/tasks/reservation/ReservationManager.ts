@@ -6,8 +6,10 @@ import { counter } from "GlobalCounter";
 import { ContainerReservation } from "./ContainerReservation";
 import { ResourceReservation } from "./ResourceReservation";
 import { ReservationManagerMemory, ReservationManagerArgs, ReservableHandler, IReservationManager } from "./common";
+import { ExtensionCluster } from "tasks/RoomAnalyst";
+import { ExtensionClusterReservation } from "./ExtensionClusterReservation";
 
-type ReserveClasses = StructureSpawn | StructureWithGeneralStorage | Resource
+type ReserveClasses = StructureSpawn | StructureWithGeneralStorage | Resource | ExtensionCluster
 
 @PersistentTask.register
 export class ReservationManager extends PersistentTask<ReservationManagerMemory, ReservationManagerArgs> implements IReservationManager {
@@ -21,7 +23,9 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
         }
     }
 
-    doInit(): void {
+    doInit() {}
+
+    doLateInit(): void {
         const implementations = IReservationManager.getReservationHandlers()
         this.memory.handlers.forEach(handlerData => {
             const impl = implementations.find(impl => impl.name === handlerData.type)
@@ -84,8 +88,16 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
             return new ContainerReservation(this)
         }
 
+        if(type instanceof StructureStorage) {
+            return new ContainerReservation(this)
+        }
+
         if(type instanceof Resource) {
             return new ResourceReservation(this)
+        }
+
+        if(type instanceof ExtensionCluster) {
+            return new ExtensionClusterReservation(this)
         }
 
         throw Error("Unknown reserve type " + type.constructor.name)
@@ -94,12 +106,12 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
     createReservation(task: GenericTask) {
         const reservationId = counter.generate()
         task.registerReservation(reservationId)
-        console.log(`<span style="color: red">Creating reservation ${reservationId} for task ${task}</span>`)
+        // console.log(`<span style="color: red">Creating reservation ${reservationId} for task ${task}</span>`)
         return reservationId
     }
 
     freeReservations(reservations: string[]) {
-        console.log(`<span style="color: red">Removing reservations ${reservations}</span>`)
+        // console.log(`<span style="color: red">Removing reservations ${reservations}</span>`)
 
         for(const handlerData of this.memory.handlers) {
             handlerData.data.chunks = handlerData.data.chunks.filter(chunk => reservations.indexOf(chunk.reservationId) < 0)

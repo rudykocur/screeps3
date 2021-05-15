@@ -80,6 +80,10 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
         this.doInit();
     }
 
+    lateInit() {
+        this.doLateInit()
+    }
+
     run(): RunResultType {
         if(!this.memory) {
             console.log("NO MEMORY !! Not running", this);
@@ -128,12 +132,17 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
         this.taskManager.delayTask(this, ticks)
     }
 
+    wakeUp() {
+        this.taskManager.wakeUp(this)
+    }
+
     registerReservation(reservationId: string) {
         this.taskManager.registerReservation(this, reservationId)
     }
 
     abstract initMemory(args: IA): M
     doPreInit() {}
+    doLateInit() {}
     abstract doInit(): void
     abstract doRun(): RunResultType
     doVisualize() {}

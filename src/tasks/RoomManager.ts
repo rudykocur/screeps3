@@ -110,9 +110,13 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
             this.doLevel0()
         }
 
+        this.manageMiners(1)
+        this.manageHaulers(1)
         this.manageMiners(2)
         this.manageHaulers(2)
         this.manageBuilders(2)
+        this.manageGeneric(1)
+        this.manageHaulers(3)
         this.manageGeneric(3)
     }
 
@@ -190,8 +194,9 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     private manageBuilders(maxBuilders: number) {
         const sites = this.roomAnalyst?.getConstructionSites() || []
+        const toRepair = this.roomAnalyst?.getToRepair() || []
 
-        if(sites.length === 0 || !this.needGenerator) {
+        if((sites.length === 0 && toRepair.length === 0) || !this.needGenerator) {
             return
         }
 

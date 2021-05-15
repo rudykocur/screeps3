@@ -3,12 +3,12 @@ import { RunResult, RunResultType } from "tasks/AbstractTask";
 import { PersistentTask } from "tasks/PersistentTask";
 import { RoomAnalyst } from "tasks/RoomAnalyst";
 import { RoomManager } from "tasks/RoomManager";
-import { BuildNeedProvider } from "./BuilderNeeds";
+import { BuildNeedProvider, RepairNeedsProvider } from "./BuilderNeeds";
 import { ResourcePickupProvider } from "./ResourceNeeds";
 import { EmptyContainerAtCriticalNeedProvider, EmptyContainerNeedProvider } from "./EmptyContainersNeeds";
 import { MineNeedsProvider } from "./MineNeeds";
 import { GenericNeedsProvider, HarvestEnergyAtCriticalNeedsProvider } from "./GenericNeeds";
-import { EnergyRefillAtCriticalNeedProvider, EnergyRefillNeedsProvider } from "./EnergyRefillNeeds";
+import { EnergyRefillAtCriticalNeedProvider, EnergyRefillNeedsProvider, ExtensionClusterNeedsProvider } from "./EnergyRefillNeeds";
 
 export const LOWEST_PRIORITY = 99999999
 
@@ -63,8 +63,10 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
                 new ResourcePickupProvider(this, this.room, this.analyst),
                 new EmptyContainerNeedProvider(this, this.room, this.analyst),
                 new EnergyRefillNeedsProvider(this, this.room, this.analyst),
+                new ExtensionClusterNeedsProvider(this, this.room, this.analyst),
                 new MineNeedsProvider(this, this.analyst),
                 new BuildNeedProvider(this, this.room, this.analyst),
+                new RepairNeedsProvider(this, this.room, this.analyst),
                 new GenericNeedsProvider(this, this.room, this.analyst),
                 new EmptyContainerAtCriticalNeedProvider(this, this.room, this.analyst),
                 new EnergyRefillAtCriticalNeedProvider(this, this.room, this.analyst),

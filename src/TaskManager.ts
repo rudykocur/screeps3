@@ -39,6 +39,10 @@ export class TaskManager {
             task.init();
         }
 
+        for(const task of this.tasks) {
+            task.lateInit();
+        }
+
         this.running = true;
     }
 
@@ -160,6 +164,10 @@ export class TaskManager {
         this.memory[task.getTaskId()].sleepUntil = Game.time + ticks;
     }
 
+    wakeUp(task: GenericTask) {
+        delete this.memory[task.getTaskId()].sleepUntil;
+    }
+
     scheduleTask<M extends TaskMemory, IA extends TaskInitArgs, T extends PersistentTask<M, IA>>(
         taskFactory: TaskType<T>,
         args: IA,
@@ -253,6 +261,12 @@ export class TaskManager {
     }
 
     doVisualize() {
+        if(Memory.config?.visualizeTaskTree) {
+            this.printTaskTree()
+        }
+    }
+
+    private printTaskTree() {
         const topTasks = Object.values(this.taskMap).filter(task => {
             const taskData = this.memory[task.getTaskId()]
             if(!taskData) {
@@ -265,7 +279,7 @@ export class TaskManager {
         const result: TaskTreeEntry[] = []
 
         for(const task of topTasks) {
-            this.showTaskData(task, '', result)
+            this.collectTaskData(task, '', result)
         }
 
         let topOffset = 0
@@ -286,7 +300,7 @@ export class TaskManager {
         })
     }
 
-    private showTaskData(task: GenericTask, indent: string, target: TaskTreeEntry[]) {
+    private collectTaskData(task: GenericTask, indent: string, target: TaskTreeEntry[]) {
         const taskData = this.memory[task.getTaskId()]
 
         target.push({
@@ -294,7 +308,7 @@ export class TaskManager {
             color: taskData?.suspended ? 'gray' : undefined
         })
         for(const child of task.getChildTasks()) {
-            this.showTaskData(child, indent + '   ', target)
+            this.collectTaskData(child, indent + '   ', target)
         }
     }
 
