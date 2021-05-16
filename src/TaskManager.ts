@@ -91,7 +91,16 @@ export class TaskManager {
                 const taskData = this.memory[taskId];
 
                 try {
-                    if(taskData.suspended) {
+                    if(!taskData) {
+                        console.log('<span style="background: olive; color: white">Skipping task with no data</span>', task)
+                        continue
+                    }
+
+                    if(task.finised) {
+                        console.log('<span style="background: olive; color: white">Skipping finished task</span>', task)
+                    }
+
+                    if(task.finised || taskData.suspended) {
                         continue;
                     }
 
@@ -140,6 +149,9 @@ export class TaskManager {
             parentData.subTasks = parentData.subTasks.filter(id => id !== taskId);
             if(parentData.subTasks.length === 0) {
                 parentData.suspended = false;
+                if(parentTask.finised) {
+                    console.log('<span style="background: olive; color: white">About to schedule finished parent task</span>', parentTask)
+                }
                 this.schedule(parentTask);
             }
             else {
@@ -153,11 +165,32 @@ export class TaskManager {
 
         console.log(`[TaskManager] ${taskId} finished`, task);
 
+        this.finishSubtasks(task)
+
         if(taskData.reservations !== undefined) {
             Game.reservationManager.freeReservations(taskData.reservations)
         }
 
         delete this.memory[taskId];
+    }
+
+    finishSubtasks(task: GenericTask) {
+        for(const child of task.getChildTasks()) {
+            this.finishSubtasks(child)
+
+            if(!child.finised) {
+                console.log('<span style="background: red; color: white">Killing orphaned child</span>', child)
+            }
+
+            const taskId = child.getTaskId();
+            const taskData = this.memory[taskId];
+
+            if(taskData && taskData.reservations !== undefined) {
+                Game.reservationManager.freeReservations(taskData.reservations)
+            }
+
+            delete this.memory[taskId]
+        }
     }
 
     delayTask(task: GenericTask, ticks: number) {

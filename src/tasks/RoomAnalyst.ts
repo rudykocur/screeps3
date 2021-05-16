@@ -12,6 +12,7 @@ interface RoomAnalystMemory {
     sources?: Id<Source>[]
     safeSources?: Id<Source>[]
     constructionSites?: Id<ConstructionSite>[]
+    spawns?: Id<StructureSpawn>[]
     extensions?: Id<StructureExtension>[]
     extensionClusters?: {
         center: string,
@@ -27,6 +28,7 @@ interface RoomAnalystMemory {
         id: Id<Structure>
         percent: number
     }[]
+    towers?: Id<StructureTower>[]
 }
 
 interface MiningSiteMemory {
@@ -137,10 +139,12 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     private sources: Source[]
     private safeSources: Source[]
     private constructionSites: ConstructionSite[]
+    private spawns: StructureSpawn[]
     private extensions: StructureExtension[]
     private extensionClusters: ExtensionCluster[]
     private creeps: Creep[]
     private toRepair: Structure[]
+    private towers: StructureTower[]
 
     private storage?: RoomStorageWrapper | null
 
@@ -176,6 +180,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             ?.map(siteId => Game.getObjectById(siteId))
             ?.filter(notEmpty) || []
 
+        this.spawns = this.memory.spawns
+            ?.map(spawnId => Game.getObjectById(spawnId))
+            .filter(notEmpty) || []
+
         this.extensions = this.memory.extensions
             ?.map(extensionId => Game.getObjectById(extensionId))
             ?.filter(notEmpty) || []
@@ -192,6 +200,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             ?.sort((a, b) => a.percent - b.percent)
             ?.map(data => Game.getObjectById(data.id))
             ?.filter(notEmpty) || []
+
+        this.towers = this.memory.towers
+            ?.map(towerId => Game.getObjectById(towerId))
+            .filter(notEmpty) || []
 
         if(this.memory.storage) {
             this.storage = new RoomStorageWrapper(
@@ -213,6 +225,8 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         this.analyzeSources()
         this.analyzeMiningSites()
         this.analyzeConstructionSites()
+        this.analyzeTowers()
+        this.analyzeSpawns()
         this.analyzeExtensions()
         this.analyzeExtensionClusters()
         this.analyzeRepairableObjects()
@@ -342,6 +356,20 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     private analyzeConstructionSites() {
         this.constructionSites = this.room.find(FIND_CONSTRUCTION_SITES)
         this.memory.constructionSites = this.constructionSites.map(site => site.id)
+    }
+
+    private analyzeTowers() {
+        this.towers = this.room.find<StructureTower>(FIND_MY_STRUCTURES, {
+            filter: obj => obj.structureType === STRUCTURE_TOWER
+        })
+        this.memory.towers = this.towers.map(tower => tower.id)
+    }
+
+    private analyzeSpawns() {
+        this.spawns = this.room.find<StructureSpawn>(FIND_MY_STRUCTURES, {
+            filter: obj => obj.structureType === STRUCTURE_SPAWN
+        })
+        this.memory.spawns = this.spawns.map(spawn => spawn.id)
     }
 
     private analyzeExtensions() {
@@ -474,8 +502,16 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         return this.safeSources
     }
 
+    getSpawns() {
+        return this.spawns
+    }
+
     getExtensions() {
         return this.extensions
+    }
+
+    getTowers() {
+        return this.towers
     }
 
     getExtensionClusters() {

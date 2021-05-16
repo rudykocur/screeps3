@@ -1,4 +1,4 @@
-import { CreepRole, CREEP_ROLE_HAULER } from "../constants"
+import { CreepRole, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER } from "../constants"
 import { DepositEnergy } from "tasks/DepositEnergy"
 import { PickupResourceTask } from "tasks/PickupResource"
 import { RoomManager } from "tasks/RoomManager"
@@ -6,10 +6,12 @@ import { ResourceTransferNeed, NeedGenerator, LOWEST_PRIORITY, NeedsProvider, Ne
 import { RoomAnalyst } from "tasks/RoomAnalyst"
 
 export class ResourcePickupProvider implements NeedsProvider {
+    protected roles?: CreepRole[]
+
     constructor(
         private generator: NeedGenerator,
         private room: RoomManager,
-        private analyst: RoomAnalyst,
+        protected analyst: RoomAnalyst,
     ) {}
 
     generate(): Need[] {
@@ -30,7 +32,8 @@ export class ResourcePickupProvider implements NeedsProvider {
                     this.room,
                     {
                         amount: resource.amount,
-                        resource: resource
+                        resource: resource,
+                        roles: this.roles
                     }
                 )
             })
@@ -38,6 +41,14 @@ export class ResourcePickupProvider implements NeedsProvider {
 
     isActive() {
         return true
+    }
+}
+
+export class ResourcePickupAtCriticalProvider extends ResourcePickupProvider {
+    roles = [CREEP_ROLE_GENERIC]
+
+    isActive() {
+        return this.analyst.isRoomAtCritical()
     }
 }
 
@@ -53,12 +64,17 @@ export class ResourcePickupNeed implements ResourceTransferNeed {
     constructor(
         private generator: NeedGenerator,
         private room: RoomManager,
-        {amount, resource}: {
+        {amount, resource, roles}: {
             amount: number,
-            resource: Resource
+            resource: Resource,
+            roles?: CreepRole[]
         }) {
             this.amount = amount
             this.resource = resource
+
+            if(roles) {
+                this.roles = roles
+            }
         }
 
     generate(actor: Creep) {

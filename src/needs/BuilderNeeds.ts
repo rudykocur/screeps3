@@ -31,7 +31,7 @@ export class BuildNeedProvider implements NeedsProvider {
     }
 
     isActive() {
-        return true
+        return !this.analyst.isRoomAtCritical()
     }
 }
 
@@ -42,6 +42,13 @@ export class RepairNeedsProvider implements NeedsProvider {
         private analyst: RoomAnalyst,
     ) {}
     generate(): Need[] {
+        const storage = this.analyst.getStorage()
+        const storedEnergy = this.analyst.getStorage()?.getResourceAmount(RESOURCE_ENERGY)
+
+        if(storage?.isConstructed() && (!storedEnergy || storedEnergy < 600)) {
+            return []
+        }
+
         return this.analyst.getToRepair().map(obj => new RepairObjectNeed(
             this.generator,
             this.room,

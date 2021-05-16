@@ -150,38 +150,67 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
         const roadsToBuild = MAX_ROAD_CONSTRUCTION_SITES - activeConstructions
 
         const storage = analyst.getStorage()
+        const controller = this.room.controller
 
-        if(roadsToBuild <= 0 || !storage) {
+        if(roadsToBuild <= 0 || !storage || !controller) {
             return
         }
 
-        let createdRoads = 0
+        const builder = new RoadBuilder(roadsToBuild)
 
         const sites = analyst.getMiningSites()
 
-        // let sitesWithoutContainer = sites.filter(site => !!site.container).length
-
-        // if(sitesWithoutContainer > 0) {
-        //     return
-        // }
-
         for(const site of sites) {
-            createdRoads += this.buildRoad(storage.location, site.containerPos, roadsToBuild)
-
-            if(createdRoads > roadsToBuild) {
-                break
-            }
+            builder.buildRoad(() => builder.createRoad(storage.location, site.containerPos, {
+                maximumSteps: builder.roadsLeft
+            }))
         }
 
-        if(createdRoads > 0) {
+        builder.buildRoad(() => builder.createRoad(storage.location, controller.pos, {
+            maximumSteps: builder.roadsLeft,
+            cutoff: 3,
+        }))
+
+        if(builder.constructedRoads > 0) {
             analyst.invalidateConstructionSites()
         }
     }
 
-    private buildRoad(from: RoomPosition, to: RoomPosition, maximumSteps: number) {
-        const path = from.findPathTo(to, {
+    setAnalyst(anaylst: RoomAnalyst) {
+        this.analyst = anaylst
+    }
+
+    toString() {
+        return `[RoomBuilder ${this.memory.roomName}]`
+    }
+}
+
+interface CreateRoadOptions {
+    maximumSteps: number
+    cutoff?: number
+}
+
+class RoadBuilder {
+    public constructedRoads: number = 0
+    public roadsLeft = 0
+    constructor(private maxSites: number) {
+        this.roadsLeft = maxSites
+    }
+
+    buildRoad(callback: () => number) {
+        if(this.constructedRoads <= this.maxSites) {
+            this.constructedRoads += callback()
+        }
+    }
+
+    createRoad(from: RoomPosition, to: RoomPosition, options: CreateRoadOptions) {
+        let path = from.findPathTo(to, {
             ignoreCreeps: true
         })
+
+        if(options.cutoff) {
+            path = path.slice(0, -1*options.cutoff)
+        }
 
         let constructedRoads = 0
 
@@ -192,22 +221,11 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
                 constructedRoads++
             }
 
-            if(constructedRoads > maximumSteps) {
+            if(constructedRoads > options.maximumSteps) {
                 break
             }
         }
 
-        // const pathVis: Array<[number, number]> = path.map(point => [point.x, point.y])
-        // Game.rooms[from.roomName].visual.poly(pathVis)
-
         return constructedRoads
-    }
-
-    setAnalyst(anaylst: RoomAnalyst) {
-        this.analyst = anaylst
-    }
-
-    toString() {
-        return `[RoomBuilder ${this.memory.roomName}]`
     }
 }

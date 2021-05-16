@@ -33,7 +33,7 @@ interface RoomPositionJson {
     roomName: string;
 }
 
-type StructureWithEnergyStorage = StructureSpawn | StructureExtension
+type StructureWithEnergyStorage = StructureSpawn | StructureExtension | StructureTower
 type StructureWithGeneralStorage = StructureContainer | StructureStorage
 
 interface ConfigOptions {

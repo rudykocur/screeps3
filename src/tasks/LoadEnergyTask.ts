@@ -58,6 +58,10 @@ export class LoadEnergyTask extends PersistentTask<LoadEnergyMemory, LoadEnergyA
             return RunResult.DONE
         }
 
+        if(this.container && this.amount && this.container.store.getUsedCapacity() < this.amount) {
+            return RunResult.DONE
+        }
+
         if(this.actor.pos.isNearTo(target)) {
             const result = this.actor.withdraw(target, RESOURCE_ENERGY, this.amount)
             if(result === ERR_NOT_ENOUGH_RESOURCES) {

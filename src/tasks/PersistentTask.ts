@@ -8,6 +8,7 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
     protected taskId: string;
     protected memory: M;
     protected childTasks: GenericTask[] = []
+    public finised: boolean = false
 
     constructor(protected taskManager: TaskManager, taskId: string | undefined) {
         if(taskId === undefined) {
@@ -90,7 +91,13 @@ export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitAr
             return RunResult.DONE;
         }
 
-        return this.doRun();
+        const result = this.doRun();
+
+        if(result === RunResult.DONE) {
+            this.finised = true
+        }
+
+        return result
     }
 
     visualize() {

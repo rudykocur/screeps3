@@ -46,16 +46,6 @@ export class DepositEnergy extends PersistentTask<DepositEnergyMemory, DepositEn
             return RunResult.DONE
         }
 
-        let toRefill = this.room.getStructuresNeedingEnergy();
-
-        if(toRefill.length > 0) {
-            this.scheduleBlockingTask(TransferResourceTask, {
-                actor: this.actor,
-                structure: toRefill[0]
-            })
-            return
-        }
-
         const analyst = this.room.getRoomAnalyst()
 
         if(!analyst) {

@@ -83,7 +83,7 @@ export class HarvestEnergyNeed implements Need {
     }
 
     calculateCost(actor: Creep) {
-        return actor.pos.getRangeTo(this.source)
+        return actor.pos.getRangeTo(this.source) * 3
     }
 
     toString() {

@@ -8,6 +8,7 @@ import { RoomAnalyst } from "./RoomAnalyst";
 import { RoomBuilder } from "./RoomBuilder";
 import { StructureWithEnergyStorage } from "types";
 import { NeedGenerator } from "needs/NeedGenerator";
+import { RoomDefender } from "./RoomDefender";
 
 interface RoomManagerMemory {
     roomName: string
@@ -28,6 +29,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     private creeps: Creep[];
     private roomAnalyst: RoomAnalyst | null
     private roomBuilder: RoomBuilder | null
+    private roomDefender: RoomDefender | null
     private needGenerator: NeedGenerator | null
 
     initMemory(args: RoomManagerArgs): RoomManagerMemory {
@@ -62,10 +64,15 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
         this.roomAnalyst = this.findTask(RoomAnalyst)
         this.roomBuilder = this.findTask(RoomBuilder)
+        this.roomDefender = this.findTask(RoomDefender)
         this.needGenerator = this.findTask(NeedGenerator)
 
         if(this.roomAnalyst && this.roomBuilder) {
             this.roomBuilder.setAnalyst(this.roomAnalyst)
+        }
+
+        if(this.roomAnalyst && this.roomDefender) {
+            this.roomDefender.setAnalyst(this.roomAnalyst)
         }
     }
 
@@ -81,6 +88,11 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         }
         if(!this.roomBuilder) {
             this.roomBuilder = this.scheduleBackgroundTask(RoomBuilder, {
+                room: this
+            })
+        }
+        if(!this.roomDefender) {
+            this.roomDefender = this.scheduleBackgroundTask(RoomDefender, {
                 room: this
             })
         }
@@ -110,10 +122,10 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
             this.doLevel0()
         }
 
-        this.manageMiners(1)
         this.manageHaulers(1)
-        this.manageMiners(2)
+        this.manageMiners(1)
         this.manageHaulers(2)
+        this.manageMiners(2)
         this.manageBuilders(2)
         this.manageGeneric(1)
         this.manageHaulers(3)
@@ -132,18 +144,6 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         }
 
         this.needGenerator.assignTasks(baseCreeps)
-    }
-
-    getStructuresNeedingEnergy(): StructureWithEnergyStorage[] {
-        return this.room.find<StructureSpawn>(FIND_MY_STRUCTURES, {
-            filter: obj => {
-                if(obj.structureType == STRUCTURE_SPAWN) {
-                    //console.log('getStructuresNeedingEnergy', obj, '::', obj.store.getFreeCapacity(RESOURCE_ENERGY))
-                }
-
-                return obj.structureType == STRUCTURE_SPAWN && (obj.store.getFreeCapacity(RESOURCE_ENERGY) || 0) > 0
-            }
-        });
     }
 
     getDroppedResources(withStorage: boolean = false) {
