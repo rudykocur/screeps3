@@ -9,6 +9,9 @@ import { RoomBuilder } from "./RoomBuilder";
 import { StructureWithEnergyStorage } from "types";
 import { NeedGenerator } from "needs/NeedGenerator";
 import { RoomDefender } from "./RoomDefender";
+import { RoomStats } from "./RoomStats";
+import { createEventBus, EventBusMaster, IEventBus } from "bus/EventBus";
+import { SpawnerEvents, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
 
 interface RoomManagerMemory {
     roomName: string
@@ -30,7 +33,12 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     private roomAnalyst: RoomAnalyst | null
     private roomBuilder: RoomBuilder | null
     private roomDefender: RoomDefender | null
+    private roomStats: RoomStats | null
     private needGenerator: NeedGenerator | null
+
+    private bus: EventBusMaster<{
+        [SPAWNER_BUS_NAME]: IEventBus<SpawnerEvents>
+    }>
 
     initMemory(args: RoomManagerArgs): RoomManagerMemory {
         return {
@@ -40,6 +48,10 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     doPreInit() {
         Game.manager.registerRoomManager(this);
+
+        this.bus = new EventBusMaster({
+            [SPAWNER_BUS_NAME]: createEventBus<SpawnerEvents>()
+        })
     }
 
     doInit(): void {
@@ -55,7 +67,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
         this.sources = this.room.find(FIND_SOURCES);
 
-        this.spawner = new Spawner(spawns, this.room.name);
+        this.spawner = new Spawner(spawns, this.room.name, this);
 
         this.creeps = this.room.find(FIND_MY_CREEPS);
 
@@ -65,14 +77,13 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         this.roomAnalyst = this.findTask(RoomAnalyst)
         this.roomBuilder = this.findTask(RoomBuilder)
         this.roomDefender = this.findTask(RoomDefender)
+        this.roomStats = this.findTask(RoomStats)
         this.needGenerator = this.findTask(NeedGenerator)
 
-        if(this.roomAnalyst && this.roomBuilder) {
-            this.roomBuilder.setAnalyst(this.roomAnalyst)
-        }
-
-        if(this.roomAnalyst && this.roomDefender) {
-            this.roomDefender.setAnalyst(this.roomAnalyst)
+        if(this.roomAnalyst) {
+            this.roomDefender?.setAnalyst(this.roomAnalyst)
+            this.roomBuilder?.setAnalyst(this.roomAnalyst)
+            this.roomStats?.setAnalyst(this.roomAnalyst)
         }
     }
 
@@ -96,6 +107,11 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
                 room: this
             })
         }
+        if(!this.roomStats) {
+            this.roomStats = this.scheduleBackgroundTask(RoomStats, {
+                room: this
+            })
+        }
         if(!this.needGenerator) {
             this.needGenerator = this.scheduleBackgroundTask(NeedGenerator, {
                 room: this
@@ -105,8 +121,6 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         if(!this.roomAnalyst) {
             return
         }
-
-        const tt = this.findTasks(MinimalEnergyWorker)
 
         this.doLevel1()
 
@@ -229,6 +243,10 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     getRoomAnalyst() {
         return this.roomAnalyst
+    }
+
+    getEventBus() {
+        return this.bus
     }
 
     get name() {

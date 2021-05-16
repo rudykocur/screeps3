@@ -12,6 +12,15 @@ export class GameManager {
     }
 
     run() {
+        if(!Memory.config) {
+            Memory.config = {
+                loggers: {}
+            }
+        }
+        if(!Memory.config.loggers) {
+            Memory.config.loggers = {}
+        }
+
         Game.manager = this;
 
         counter.reset()

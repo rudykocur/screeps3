@@ -4,6 +4,7 @@ import { PersistentTask } from "./PersistentTask";
 import { RoomAnalyst } from "./RoomAnalyst";
 import { getPositionsAround } from "utils/MapUtils";
 import { isBuildable } from "utils/common";
+import { Logger } from "Logger";
 
 interface RoomBuilderMemory {
     roomName: string
@@ -20,6 +21,8 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
     private analyst?: RoomAnalyst
     private room: Room
 
+    private logger = new Logger('RoomBuilder')
+
     initMemory(args: RoomBuilderArgs): RoomBuilderMemory {
         return {
             roomName: args.room.name
@@ -30,10 +33,8 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
     }
 
     doRun(): RunResultType {
-        // console.log('OMG ANALYST', this.roomAnalyst)
-
         if(!this.analyst) {
-            console.log("NO ANALYST :(")
+            this.logger.warn("NO ANALYST :(")
             this.sleep(3)
             return
         }
@@ -41,7 +42,7 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
         const storageInConstruction = this.analyst.getConstructionSites().filter(site => site.structureType === STRUCTURE_STORAGE).length > 0
 
         if(!storageInConstruction) {
-            console.log(this, 'running ...')
+            this.logger.important(this, 'running ...')
             const storageStarted = this.buildStorage(this.analyst)
 
             if(storageStarted) {
@@ -53,7 +54,7 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
             this.buildRoads(this.analyst)
         }
         else {
-            console.log(this, 'not running - storage in construction')
+            this.logger.important(this, 'not running - storage in construction')
         }
 
         this.sleep(10)

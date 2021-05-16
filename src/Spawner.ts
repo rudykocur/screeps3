@@ -1,9 +1,15 @@
+import { SpawnerChannel, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
 import { CreepSpawnTemplate } from "spawner/CreepSpawnTemplate";
+import { RoomManager } from "tasks/RoomManager";
 
 export class Spawner {
     private spawnQueue: CreepSpawnTemplate[] = []
 
-    constructor(private structures: StructureSpawn[], private roomName: string) {}
+    constructor(
+        private structures: StructureSpawn[],
+        private roomName: string,
+        private room: RoomManager,
+    ) {}
 
     canSpawn(): boolean {
         return this.structures.find(s => s.spawning === null) != undefined;
@@ -31,6 +37,10 @@ export class Spawner {
 
                 if(result === OK) {
                     console.log(this, 'spawned creep', creepName)
+                    this.room.getEventBus().getBus(SPAWNER_BUS_NAME).dispatch(SpawnerChannel.CREEP_CREATED, {
+                        roomName: this.roomName,
+                        role: memory.role
+                    })
                 }
 
                 if(result == ERR_NOT_ENOUGH_ENERGY) {

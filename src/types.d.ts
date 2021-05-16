@@ -5,6 +5,7 @@ import { GameManager } from "GameManager";
 import { TaskManager } from "TaskManager";
 import { AbstractTask } from "tasks/AbstractTask";
 import { ReservationManager } from "tasks/reservation/ReservationManager";
+import { LogLevel } from "Logger";
 
 interface TaskMemory {}
 
@@ -38,6 +39,7 @@ type StructureWithGeneralStorage = StructureContainer | StructureStorage
 
 interface ConfigOptions {
     visualizeTaskTree?: boolean
+    loggers: Record<string, LogLevel>
 }
 
 declare global {

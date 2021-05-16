@@ -1,3 +1,4 @@
+import { Logger } from "Logger";
 import { RunResult } from "tasks/AbstractTask";
 import { PersistentTask } from "tasks/PersistentTask";
 import { TaskInitArgs, TaskMemory, TaskRuntimeData, TaskType } from "types";
@@ -19,9 +20,11 @@ export class TaskManager {
     private running: boolean = false;
     private memory: Record<string, TaskRuntimeData>;
 
+    private logger = new Logger('TaskManager')
+
     constructor() {
         if(Memory.tasks === undefined) {
-            console.log("INTIALIZING TASK MANAGER MEMORY");
+            this.logger.important("INTIALIZING TASK MANAGER MEMORY");
             Memory.tasks = {}
         }
 
@@ -64,7 +67,7 @@ export class TaskManager {
                 i++;
             }
             else {
-                console.log('[TaskManager] WARNING! No implementation for', taskData.clazz)
+                this.logger.error('[TaskManager] WARNING! No implementation for', taskData.clazz)
             }
         })
 
@@ -76,8 +79,6 @@ export class TaskManager {
                 this.taskMap[parentId].registerChildTask(task)
             }
         }
-
-        //console.log('Loaded', i, 'tasks from memory')
     }
 
     run() {
@@ -92,12 +93,12 @@ export class TaskManager {
 
                 try {
                     if(!taskData) {
-                        console.log('<span style="background: olive; color: white">Skipping task with no data</span>', task)
+                        this.logger.error('Skipping task with no data', task)
                         continue
                     }
 
                     if(task.finised) {
-                        console.log('<span style="background: olive; color: white">Skipping finished task</span>', task)
+                        this.logger.error('Skipping finished task', task)
                     }
 
                     if(task.finised || taskData.suspended) {
@@ -122,12 +123,10 @@ export class TaskManager {
                     i++;
                 }
                 catch(e) {
-                    console.log('<span style="background: red; color: white">FAILED TO RUN TASK</span>', task, '::', e)
+                    this.logger.critical('FAILED TO RUN TASK', task, '::', e)
                 }
             }
         }
-
-        //console.log("Executed", i, "actions");
     }
 
     visualize() {
@@ -150,7 +149,7 @@ export class TaskManager {
             if(parentData.subTasks.length === 0) {
                 parentData.suspended = false;
                 if(parentTask.finised) {
-                    console.log('<span style="background: olive; color: white">About to schedule finished parent task</span>', parentTask)
+                    this.logger.error('<span style="background: olive; color: white">About to schedule finished parent task</span>', parentTask)
                 }
                 this.schedule(parentTask);
             }
@@ -163,7 +162,7 @@ export class TaskManager {
             }
         }
 
-        console.log(`[TaskManager] ${taskId} finished`, task);
+        this.logger.debug(`[TaskManager] ${taskId} finished`, task);
 
         this.finishSubtasks(task)
 
@@ -179,7 +178,7 @@ export class TaskManager {
             this.finishSubtasks(child)
 
             if(!child.finised) {
-                console.log('<span style="background: red; color: white">Killing orphaned child</span>', child)
+                this.logger.critical('Killing orphaned child', child)
             }
 
             const taskId = child.getTaskId();
@@ -231,7 +230,7 @@ export class TaskManager {
 
         this.schedule(task);
 
-        console.log("Scheduled task", task);
+        this.logger.debug("Scheduled task", task);
 
         return task;
     }

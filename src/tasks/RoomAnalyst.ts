@@ -5,6 +5,7 @@ import { getPositionsAround } from "../utils/MapUtils"
 import { packPos, unpackPos } from "../utils/packrat"
 import { isBuildable, notEmpty } from "utils/common";
 import { CREEP_ROLE_MINER, CREEP_ROLE_HAULER } from "../constants";
+import { Logger } from "Logger";
 
 interface RoomAnalystMemory {
     roomName: string,
@@ -148,6 +149,8 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     private storage?: RoomStorageWrapper | null
 
+    private logger = new Logger()
+
     initMemory(args: RoomAnalystArgs): RoomAnalystMemory {
         return {
             roomName: args.room.name,
@@ -219,7 +222,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     doInit() {}
 
     doRun(): RunResultType {
-        console.log(this, 'Running analysis ...')
+        this.logger.important(this, 'Running analysis ...')
 
         this.analyzeStorage()
         this.analyzeSources()
