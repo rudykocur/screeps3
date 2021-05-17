@@ -1,50 +1,44 @@
 import { RoomPositionJson } from "types";
+import { packPos, unpackPos } from "utils/packrat";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { PersistentTask } from "./PersistentTask";
 
 interface MoveTaskMemory {
-    actorId: Id<Creep>;
-    target: RoomPositionJson;
-    range: number;
+    actorId: Id<Creep>
+    target: string
+    range: number
 }
 
 interface MoveTaskArgs {
-    actor: Creep;
-    target: RoomPosition;
-    range?: number;
+    actor: Creep
+    target: RoomPosition
+    range?: number
 }
 
 @PersistentTask.register
 export class MoveTask extends PersistentTask<MoveTaskMemory, MoveTaskArgs> {
-    private actor?: Creep;
-    private target: RoomPosition;
-    private range: number;
+    private actor?: Creep | null
+    private target: RoomPosition
+    private range: number
 
     initMemory(args: MoveTaskArgs): MoveTaskMemory {
         return {
             actorId: args.actor.id,
-            target: {
-                x: args.target.x,
-                y: args.target.y,
-                roomName: args.target.roomName,
-            },
+            target: packPos(args.target),
             range: args.range ?? 1
         }
     }
 
     doInit(): void {
-        const actor = Game.getObjectById<Creep>(this.memory.actorId);
+        this.actor = Game.getObjectById(this.memory.actorId);
 
-        this.target = new RoomPosition(this.memory.target.x, this.memory.target.y, this.memory.target.roomName);
         this.range = this.memory.range;
 
-        if(actor) {
-            this.actor = actor;
-        }
+        this.target = unpackPos(this.memory.target)
     }
 
     doRun(): RunResultType {
-        if(!this.actor) {
+        if(!this.actor || !this.target) {
             return RunResult.DONE
         }
 
@@ -61,6 +55,6 @@ export class MoveTask extends PersistentTask<MoveTaskMemory, MoveTaskArgs> {
     }
 
     toString() {
-        return `[MoveTask ${this.taskId} actor=${this.actor} target=${this.target}, range=${this.range}]`
+        return `[MoveTask actor=${this.actor} target=${this.target}, range=${this.range}]`
     }
 }

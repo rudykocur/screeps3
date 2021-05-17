@@ -128,7 +128,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     }
 
     doLevel1() {
-        if(!this.roomAnalyst) {
+        if(!this.roomAnalyst || !this.roomStats) {
             return
         }
 
@@ -143,7 +143,10 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         this.manageBuilders(2)
         this.manageGeneric(1)
         this.manageHaulers(3)
-        this.manageGeneric(5)
+
+        if(this.roomStats.getAverageEnergyInStorage() > 5000 && this.roomStats.getTicksSinceLastSpawn(CREEP_ROLE_GENERIC) > 150) {
+            this.manageGeneric(5)
+        }
     }
 
     doLevel0() {
