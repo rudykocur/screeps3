@@ -7,8 +7,10 @@ export enum SpawnerChannel {
 }
 
 export interface CreepCreatedEvent {
+    spawnId: string
     roomName: string
     role: CreepRole
+    creepName: string
 }
 
 export type SpawnerEvents = {

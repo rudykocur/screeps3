@@ -72,3 +72,18 @@ export class HaulerCreepTemplate implements CreepSpawnTemplate {
     }
 }
 
+export class ScoutCreepTemplate implements CreepSpawnTemplate {
+    constructor(private roomName: string) {}
+
+    getBodyParts(): BodyPartConstant[] {
+        return [MOVE, MOVE, WORK]
+    }
+
+    getMemory(): CreepMemory {
+        return {
+            room: this.roomName,
+            role: "scout",
+        };
+    }
+}
+

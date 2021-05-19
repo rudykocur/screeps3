@@ -2,16 +2,16 @@ import { Spawner } from "Spawner";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { PersistentTask } from "./PersistentTask";
 import { BuilderCreepTemplate, GenericCreepTemplate, HaulerCreepTemplate, MinerCreepTemplate } from "spawner/CreepSpawnTemplate";
-import { MinimalEnergyWorker } from "tasks/creeps/MinimalEnergyWorker";
 import { CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER, CREEP_ROLE_MINER } from "../constants";
 import { RoomAnalyst } from "./RoomAnalyst";
 import { RoomBuilder } from "./RoomBuilder";
-import { StructureWithEnergyStorage } from "types";
 import { NeedGenerator } from "needs/NeedGenerator";
 import { RoomDefender } from "./RoomDefender";
 import { RoomStats } from "./RoomStats";
 import { createEventBus, EventBusMaster, IEventBus } from "bus/EventBus";
 import { SpawnerEvents, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
+import { RemoteRoomManager } from "./RemoteRoomManager";
+import { Logger } from "Logger";
 
 interface RoomManagerMemory {
     roomName: string
@@ -28,7 +28,6 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     private spawner: Spawner;
     private temporaryStorage: Flag | undefined;
-    private sources: Source[];
     private creeps: Creep[];
     private roomAnalyst: RoomAnalyst | null
     private roomBuilder: RoomBuilder | null
@@ -39,6 +38,8 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     private bus: EventBusMaster<{
         [SPAWNER_BUS_NAME]: IEventBus<SpawnerEvents>
     }>
+
+    private logger = new Logger('RoomManager')
 
     initMemory(args: RoomManagerArgs): RoomManagerMemory {
         return {
@@ -64,8 +65,6 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         const spawns = this.room.find<StructureSpawn>(FIND_MY_STRUCTURES, {
             filter: obj => obj.structureType == STRUCTURE_SPAWN
         });
-
-        this.sources = this.room.find(FIND_SOURCES);
 
         this.spawner = new Spawner(spawns, this.room.name, this);
 
@@ -122,9 +121,11 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
             return
         }
 
+        this.createRemoteRoomManagers(this.roomAnalyst)
+
         this.doLevel1()
 
-        this.spawner.run()
+        this.taskManager.runLast(() => this.spawner.run())
     }
 
     doLevel1() {
@@ -140,11 +141,11 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         this.manageMiners(1)
         this.manageHaulers(2)
         this.manageMiners(2)
-        this.manageBuilders(2)
+        this.manageBuilders(1)
         this.manageGeneric(1)
         this.manageHaulers(3)
 
-        if(this.roomStats.getAverageEnergyInStorage() > 5000 && this.roomStats.getTicksSinceLastSpawn(CREEP_ROLE_GENERIC) > 150) {
+        if(this.roomStats.getAverageEnergyInStorage() > 5000 && this.roomStats.getTicksSinceLastSpawn(CREEP_ROLE_GENERIC) > 250) {
             this.manageGeneric(5)
         }
     }
@@ -161,6 +162,23 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         }
 
         this.needGenerator.assignTasks(baseCreeps)
+    }
+
+    private createRemoteRoomManagers(analyst: RoomAnalyst) {
+        const remoteRoomsTasks = this.findTasks(RemoteRoomManager)
+
+        for(const remoteRoomName of analyst.getExpansionDirections()) {
+            const remoteManager = remoteRoomsTasks.find(room => room.name === remoteRoomName)
+
+            if(!remoteManager) {
+                this.logger.important(this, 'Creating remote room manager for room', remoteRoomName)
+
+                this.scheduleBackgroundTask(RemoteRoomManager, {
+                    roomName: remoteRoomName,
+                    parentRoom: this,
+                })
+            }
+        }
     }
 
     getDroppedResources(withStorage: boolean = false) {
@@ -250,6 +268,10 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     getEventBus() {
         return this.bus
+    }
+
+    getSpawner() {
+        return this.spawner
     }
 
     get name() {

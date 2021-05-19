@@ -31,7 +31,7 @@ export class RoomStats extends PersistentTask<RoomStatsMemory, RoomStatsArgs> {
     private energyToPickupStats: StatsAggregator
     private energyInStorage: StatsAggregator
 
-    private logger = new Logger()
+    private logger = new Logger('RoomStats')
 
     initMemory(args: RoomStatsArgs): RoomStatsMemory {
         return {

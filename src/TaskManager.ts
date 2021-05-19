@@ -14,11 +14,14 @@ interface ScheduleTaskOptions {
     parent?: GenericTask;
 }
 
+type LastRunCallback = () => void
+
 export class TaskManager {
     private tasks: GenericTask[] = [];
     private taskMap: Record<string, GenericTask> = {};
     private running: boolean = false;
     private memory: Record<string, TaskRuntimeData>;
+    private lastCallbacks: LastRunCallback[] = []
 
     private logger = new Logger('TaskManager')
 
@@ -81,6 +84,10 @@ export class TaskManager {
         }
     }
 
+    runLast(callback: LastRunCallback) {
+        this.lastCallbacks.push(callback)
+    }
+
     run() {
         let i = 0;
 
@@ -123,9 +130,13 @@ export class TaskManager {
                     i++;
                 }
                 catch(e) {
-                    this.logger.critical('FAILED TO RUN TASK', task, '::', e)
+                    this.logger.critical('FAILED TO RUN TASK', task, '::', e, '::', e.stack)
                 }
             }
+        }
+
+        for(const callback of this.lastCallbacks) {
+            callback()
         }
     }
 

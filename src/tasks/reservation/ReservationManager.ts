@@ -114,8 +114,46 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
         // console.log(`<span style="color: red">Removing reservations ${reservations}</span>`)
 
         for(const handlerData of this.memory.handlers) {
-            handlerData.data.chunks = handlerData.data.chunks.filter(chunk => reservations.indexOf(chunk.reservationId) < 0)
+            for(const reservationId of reservations) {
+                const reservationIndex = handlerData.data.chunks.findIndex(chunk => chunk.reservationId === reservationId)
+                if(reservationIndex >= 0) {
+                    // console.log(`<span style="color: orange">Removing reservations ${reservationId} from ${handlerData.type}:${handlerData.targetId} ${JSON.stringify(handlerData.data.chunks)}</span>`)
+                    handlerData.data.chunks.splice(reservationIndex, 1)
+                }
+            }
         }
+    }
+
+    doVisualize() {
+        // this.visualizeReservations()
+    }
+
+    private visualizeReservations() {
+        let room: Room
+        if(Game.rooms.sim) {
+            room = Game.rooms.sim
+        } else {
+            room = Object.values(Game.rooms)[0]
+        }
+
+        const lines: string[] = []
+
+        for(const handlerData of this.memory.handlers) {
+            const handler = Object.values(this.handlersMap).find(h => h.getTargetId() === handlerData.targetId)
+
+            if(handler) {
+                lines.push(`${handlerData.type}:${handler.getTargetId()} = ${handler.getReservedAmount()}`)
+            }
+        }
+
+        const topOffset = 0
+        lines.forEach((line, index) => {
+            room.visual.text(line, 49, topOffset + index, {
+                align: "right",
+                stroke: "black",
+                color: "white"
+            })
+        })
     }
 
     toString() {

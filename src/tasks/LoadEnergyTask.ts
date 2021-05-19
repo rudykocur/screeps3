@@ -54,7 +54,7 @@ export class LoadEnergyTask extends PersistentTask<LoadEnergyMemory, LoadEnergyA
             return RunResult.DONE
         }
 
-        if(this.container && !this.amount && this.container.store.getUsedCapacity() < 10) {
+        if(this.container && !this.amount && this.container.store.getUsedCapacity() < 50) {
             return RunResult.DONE
         }
 

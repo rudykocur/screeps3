@@ -58,15 +58,21 @@ export class FillExtensionClusterTask extends PersistentTask<FillExtensionCluste
             this.actor.transfer(extensions[0], RESOURCE_ENERGY)
         }
         else {
-            const carry = this.actor.store.getCapacity()
-                Game.reservationManager.getHandler(this.cluster)?.reserve(this, carry)
-
             this.scheduleBlockingTask(MoveTask, {
                 actor: this.actor,
                 target: this.cluster.center,
                 range: 0,
             })
         }
+    }
+
+    reserveResouces() {
+        if(!this.actor || !this.cluster) {
+            return
+        }
+
+        const carry = this.actor.store.getCapacity()
+        Game.reservationManager.getHandler(this.cluster)?.reserve(this, carry)
     }
 
     getActorId() {

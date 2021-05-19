@@ -200,6 +200,8 @@ export class ExtensionClusterRefillNeed implements Need {
             cluster: this.cluster
         })
 
+        parent.reserveResouces()
+
         this.generator.scheduleChildTask(parent, WithdrawEnergy, {
             actor: actor,
             room: this.room,

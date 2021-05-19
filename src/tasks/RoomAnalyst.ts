@@ -5,6 +5,7 @@ import { getPositionsAround } from "../utils/MapUtils"
 import { packPos, unpackPos } from "../utils/packrat"
 import { isBuildable, notEmpty } from "utils/common";
 import { CREEP_ROLE_MINER, CREEP_ROLE_HAULER } from "../constants";
+import { flagSelectors } from "../utils/common"
 import { Logger } from "Logger";
 
 interface RoomAnalystMemory {
@@ -30,6 +31,7 @@ interface RoomAnalystMemory {
         percent: number
     }[]
     towers?: Id<StructureTower>[]
+    expansionDirections?: string[]
 }
 
 interface MiningSiteMemory {
@@ -149,7 +151,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     private storage?: RoomStorageWrapper | null
 
-    private logger = new Logger()
+    private logger = new Logger('RoomAnalyst')
 
     initMemory(args: RoomAnalystArgs): RoomAnalystMemory {
         return {
@@ -233,6 +235,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         this.analyzeExtensions()
         this.analyzeExtensionClusters()
         this.analyzeRepairableObjects()
+        this.analyzeExpansionDirections()
 
         this.sleep(15)
     }
@@ -448,6 +451,39 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             .slice(0, 30)
     }
 
+    private analyzeExpansionDirections() {
+        const flags = Object.values(Game.flags)
+            .filter(flag => flag.pos.roomName === this.room.name)
+            .filter(flagSelectors.isExpansionFlag)
+
+        const roomExits = Game.map.describeExits(this.room.name)
+        this.memory.expansionDirections = flags
+            .map(flag => {
+                if(flag.pos.x === 0) {
+                    return FIND_EXIT_LEFT
+                }
+                if(flag.pos.y === 0) {
+                    return FIND_EXIT_TOP
+                }
+                if(flag.pos.x === 49) {
+                    return FIND_EXIT_RIGHT
+                }
+                if(flag.pos.y === 49) {
+                    return FIND_EXIT_BOTTOM
+                }
+
+                return null
+            })
+            .filter(notEmpty)
+            .map(exitCode => {
+                const exitStrCode = exitCode.toString() as ExitKey
+                return roomExits[exitStrCode]
+            })
+            .filter(notEmpty)
+
+        this.logger.debug(this, 'Expansion directions:', this.memory.expansionDirections)
+    }
+
     doVisualize() {
         for(const site of this.miningSites) {
             this.room.visual.circle(site.containerPos)
@@ -529,6 +565,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         return this.room
             .find(FIND_DROPPED_RESOURCES)
             .filter(res => res.amount > 100)
+    }
+
+    getExpansionDirections() {
+        return this.memory.expansionDirections || []
     }
 
     isRoomAtCritical() {
