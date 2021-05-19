@@ -1,19 +1,18 @@
 import { CreepRole, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER } from "../constants"
 import { DepositEnergy } from "tasks/DepositEnergy"
 import { LoadEnergyTask } from "tasks/LoadEnergyTask"
-import { RoomManager } from "tasks/RoomManager"
-import { ResourceTransferNeed, NeedGenerator, LOWEST_PRIORITY, NeedsProvider, Need } from "./NeedGenerator"
-import { Optional } from "types"
+import { ResourceTransferNeed, LOWEST_PRIORITY, NeedsProvider, Need } from "./NeedGenerator"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
 import { notEmpty } from "utils/common"
+import { IRoomManager, IScheduler } from "interfaces"
 
 export class EmptyContainerNeedProvider implements NeedsProvider {
 
     protected roles?: CreepRole[] = undefined
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         protected analyst: RoomAnalyst
     ) {}
 
@@ -34,7 +33,7 @@ export class EmptyContainerNeedProvider implements NeedsProvider {
             })
             .map(container => {
                 return new EmptyContainerNeed(
-                    this.generator,
+                    this.scheduler,
                     this.room,
                     {
                         amount: container.store.getUsedCapacity(),
@@ -70,8 +69,8 @@ export class EmptyContainerNeed implements ResourceTransferNeed {
     public container: StructureContainer
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         {amount, container, roles}: {
             amount: number,
             container: StructureContainer,
@@ -86,12 +85,12 @@ export class EmptyContainerNeed implements ResourceTransferNeed {
         }
 
     generate(actor: Creep) {
-        const parentTask = this.generator.scheduleBackgroundTask(DepositEnergy, {
+        const parentTask = this.scheduler.scheduleBackgroundTask(DepositEnergy, {
             actor: actor,
             room: this.room,
         })
 
-        this.generator.scheduleChildTask(parentTask, LoadEnergyTask, {
+        this.scheduler.scheduleChildTask(parentTask, LoadEnergyTask, {
             actor: actor,
             container: this.container
         })

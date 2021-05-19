@@ -2,13 +2,13 @@ import { CreepRole } from "../constants";
 import { RunResult, RunResultType } from "tasks/AbstractTask";
 import { PersistentTask } from "tasks/PersistentTask";
 import { RoomAnalyst } from "tasks/RoomAnalyst";
-import { RoomManager } from "tasks/RoomManager";
 import { BuildNeedProvider, RepairNeedsProvider } from "./BuilderNeeds";
 import { ResourcePickupAtCriticalProvider, ResourcePickupProvider } from "./ResourceNeeds";
 import { EmptyContainerAtCriticalNeedProvider, EmptyContainerNeedProvider } from "./EmptyContainersNeeds";
 import { MineNeedsProvider } from "./MineNeeds";
 import { GenericNeedsProvider, HarvestEnergyAtCriticalNeedsProvider } from "./GenericNeeds";
 import { EnergyRefillAtCriticalNeedProvider, EnergyRefillNeedsProvider, ExtensionClusterNeedsProvider, SpawnRefillAtCriticalNeedProvider, SpawnRefillNeedsProvider, TowerRefillNeedsProvider } from "./EnergyRefillNeeds";
+import { IRoomManager } from "interfaces";
 
 export const LOWEST_PRIORITY = 99999999
 
@@ -37,16 +37,15 @@ interface NeedGeneratorMemory {
 }
 
 interface NeedGeneratorArgs {
-    room: RoomManager
+    room: IRoomManager
 }
 
-@PersistentTask.register
-export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGeneratorArgs> {
+export abstract class NeedGeneratorBase extends PersistentTask<NeedGeneratorMemory, NeedGeneratorArgs> {
 
-    private room?: RoomManager | null
-    private analyst?: RoomAnalyst | null
+    protected room?: IRoomManager | null
+    protected analyst?: RoomAnalyst | null
     private _needs?: Need[]
-    private providers: NeedsProvider[] = []
+    protected providers: NeedsProvider[] = []
 
     initMemory(args: NeedGeneratorArgs): NeedGeneratorMemory {
         return {
@@ -58,26 +57,10 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
         this.room = Game.manager.getRoomManager(this.memory.roomName)
         this.analyst = this.room?.getRoomAnalyst()
 
-        if(this.room && this.analyst) {
-            this.providers.push(
-                new ResourcePickupProvider(this, this.room, this.analyst),
-                new EmptyContainerNeedProvider(this, this.room, this.analyst),
-                new SpawnRefillNeedsProvider(this, this.room, this.analyst),
-                new SpawnRefillAtCriticalNeedProvider(this, this.room, this.analyst),
-                new EnergyRefillNeedsProvider(this, this.room, this.analyst),
-                new TowerRefillNeedsProvider(this, this.room, this.analyst),
-                new ExtensionClusterNeedsProvider(this, this.room, this.analyst),
-                new MineNeedsProvider(this, this.analyst),
-                new BuildNeedProvider(this, this.room, this.analyst),
-                new RepairNeedsProvider(this, this.room, this.analyst),
-                new GenericNeedsProvider(this, this.room, this.analyst),
-                new EmptyContainerAtCriticalNeedProvider(this, this.room, this.analyst),
-                new EnergyRefillAtCriticalNeedProvider(this, this.room, this.analyst),
-                new ResourcePickupAtCriticalProvider(this, this.room, this.analyst),
-                new HarvestEnergyAtCriticalNeedsProvider(this, this.room, this.analyst)
-            )
-        }
+        this.initProviders()
     }
+
+    abstract initProviders(): void
 
     doRun(): RunResultType {
         if(!this.room || !this.analyst) {
@@ -152,5 +135,42 @@ export class NeedGenerator extends PersistentTask<NeedGeneratorMemory, NeedGener
     toString() {
         return `[NeedGenerator ${this.room}]`
     }
+}
 
+@PersistentTask.register
+export class NeedGenerator extends NeedGeneratorBase {
+    initProviders(): void {
+        if(this.room && this.analyst) {
+            this.providers.push(
+                new ResourcePickupProvider(this, this.room, this.analyst),
+                new EmptyContainerNeedProvider(this, this.room, this.analyst),
+                new SpawnRefillNeedsProvider(this, this.room, this.analyst),
+                new SpawnRefillAtCriticalNeedProvider(this, this.room, this.analyst),
+                new EnergyRefillNeedsProvider(this, this.room, this.analyst),
+                new TowerRefillNeedsProvider(this, this.room, this.analyst),
+                new ExtensionClusterNeedsProvider(this, this.room, this.analyst),
+                new MineNeedsProvider(this, this.analyst),
+                new BuildNeedProvider(this, this.room, this.analyst),
+                new RepairNeedsProvider(this, this.room, this.analyst),
+                new GenericNeedsProvider(this, this.room, this.analyst),
+                new EmptyContainerAtCriticalNeedProvider(this, this.room, this.analyst),
+                new EnergyRefillAtCriticalNeedProvider(this, this.room, this.analyst),
+                new ResourcePickupAtCriticalProvider(this, this.room, this.analyst),
+                new HarvestEnergyAtCriticalNeedsProvider(this, this.room, this.analyst)
+            )
+        }
+    }
+}
+
+@PersistentTask.register
+export class RemoteRoomNeedGenerator extends NeedGeneratorBase {
+    initProviders(): void {
+        if(this.room && this.analyst) {
+            this.providers.push(
+                // new ResourcePickupProvider(this, this.room, this.analyst),
+                // new EmptyContainerNeedProvider(this, this.room, this.analyst),
+                new MineNeedsProvider(this, this.analyst),
+            )
+        }
+    }
 }

@@ -1,27 +1,26 @@
 import { CreepRole, CREEP_ROLE_MINER } from "../constants"
 import { MinerCreep } from "tasks/creeps/MinerCreep"
-import { Need, NeedGenerator, NeedsProvider } from "./NeedGenerator"
+import { Need, NeedsProvider } from "./NeedGenerator"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
-import { RoomManager } from "tasks/RoomManager"
-import { Optional } from "types"
+import { IScheduler } from "interfaces"
 
 export class MineNeedsProvider implements NeedsProvider {
 
     constructor(
-        private generator: NeedGenerator,
+        private scheduler: IScheduler,
         private analyst: RoomAnalyst,
     ) {}
 
     generate(): Need[] {
         const sites = this.analyst.getMiningSites()
 
-        const tasks = this.generator.findTasks(MinerCreep)
+        const tasks = this.scheduler.findTasks(MinerCreep)
 
         const freeSites = sites.filter(site =>
             tasks.find(job => job.getSourceId() === site.source.id) === undefined
         )
 
-        return freeSites.map(site => new MineSourceNeed(this.generator, {
+        return freeSites.map(site => new MineSourceNeed(this.scheduler, {
             source: site.source,
             container: site.container
         }))
@@ -40,7 +39,7 @@ export class MineSourceNeed implements Need {
     container?: StructureContainer | null
 
     constructor(
-        private generator: NeedGenerator,
+        private scheduler: IScheduler,
         {source, container}: {
             source: Source,
             container?: StructureContainer | null
@@ -51,7 +50,7 @@ export class MineSourceNeed implements Need {
     }
 
     generate(actor: Creep) {
-        this.generator.scheduleBackgroundTask(MinerCreep, {
+        this.scheduler.scheduleBackgroundTask(MinerCreep, {
             actor: actor,
             source: this.source,
             container: this.container

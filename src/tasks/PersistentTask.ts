@@ -2,8 +2,9 @@ import { GenericTask, TaskManager } from "TaskManager";
 import { AbstractTask, RunResult, RunResultType } from "./AbstractTask";
 import { counter } from "GlobalCounter";
 import { TaskInitArgs, TaskMemory, TaskType } from "types";
+import { IScheduler } from "interfaces";
 
-export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitArgs> implements AbstractTask {
+export abstract class PersistentTask<M extends TaskMemory, IA extends TaskInitArgs> implements AbstractTask, IScheduler {
 
     protected taskId: string;
     protected memory: M;

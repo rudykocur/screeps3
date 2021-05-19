@@ -1,10 +1,10 @@
 import { CreepCreatedEvent, SpawnerChannel, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
-import { CreepRole, CREEP_ROLE_GENERIC } from "../constants";
+import { CreepRole } from "../constants";
 import { Logger } from "Logger";
 import { RunResultType } from "./AbstractTask";
 import { PersistentTask } from "./PersistentTask";
 import { RoomAnalyst } from "./RoomAnalyst";
-import { RoomManager } from "./RoomManager";
+import { IOwnedRoomManager } from "interfaces";
 
 interface StatMemory {
     partials: string
@@ -21,13 +21,13 @@ interface RoomStatsMemory {
 }
 
 interface RoomStatsArgs {
-    room: RoomManager
+    room: IOwnedRoomManager
 }
 
 @PersistentTask.register
 export class RoomStats extends PersistentTask<RoomStatsMemory, RoomStatsArgs> {
     private analyst?: RoomAnalyst
-    private room?: RoomManager | null
+    private room?: IOwnedRoomManager | null
     private energyToPickupStats: StatsAggregator
     private energyInStorage: StatsAggregator
 

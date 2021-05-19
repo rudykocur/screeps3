@@ -1,8 +1,8 @@
+import { IRoomManager } from "interfaces";
 import { TaskWithActor } from "TaskManager";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { MoveTask } from "./MoveTask";
 import { PersistentTask } from "./PersistentTask";
-import { RoomManager } from "./RoomManager";
 
 interface UpgradeControllerMemory {
     actorId: Id<Creep>
@@ -11,7 +11,7 @@ interface UpgradeControllerMemory {
 
 interface UpgradeControllerArgs {
     actor: Creep
-    room: RoomManager
+    room: IRoomManager
 }
 
 @PersistentTask.register

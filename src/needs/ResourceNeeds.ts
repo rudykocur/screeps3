@@ -1,16 +1,16 @@
 import { CreepRole, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER } from "../constants"
 import { DepositEnergy } from "tasks/DepositEnergy"
 import { PickupResourceTask } from "tasks/PickupResource"
-import { RoomManager } from "tasks/RoomManager"
-import { ResourceTransferNeed, NeedGenerator, LOWEST_PRIORITY, NeedsProvider, Need } from "./NeedGenerator"
+import { ResourceTransferNeed, LOWEST_PRIORITY, NeedsProvider, Need } from "./NeedGenerator"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
+import { IRoomManager, IScheduler } from "interfaces"
 
 export class ResourcePickupProvider implements NeedsProvider {
     protected roles?: CreepRole[]
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         protected analyst: RoomAnalyst,
     ) {}
 
@@ -28,7 +28,7 @@ export class ResourcePickupProvider implements NeedsProvider {
             })
             .map(resource => {
                 return new ResourcePickupNeed(
-                    this.generator,
+                    this.scheduler,
                     this.room,
                     {
                         amount: resource.amount,
@@ -62,8 +62,8 @@ export class ResourcePickupNeed implements ResourceTransferNeed {
     public weight: number = 0.8
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         {amount, resource, roles}: {
             amount: number,
             resource: Resource,
@@ -78,12 +78,12 @@ export class ResourcePickupNeed implements ResourceTransferNeed {
         }
 
     generate(actor: Creep) {
-        const parentTask = this.generator.scheduleBackgroundTask(DepositEnergy, {
+        const parentTask = this.scheduler.scheduleBackgroundTask(DepositEnergy, {
             actor: actor,
             room: this.room,
         })
 
-        this.generator.scheduleChildTask(parentTask, PickupResourceTask, {
+        this.scheduler.scheduleChildTask(parentTask, PickupResourceTask, {
             actor: actor,
             resource: this.resource
         })

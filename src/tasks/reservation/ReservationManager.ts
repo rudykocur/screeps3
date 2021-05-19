@@ -125,7 +125,9 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
     }
 
     doVisualize() {
-        // this.visualizeReservations()
+        if(Memory.config?.visualizeReservations) {
+            this.visualizeReservations()
+        }
     }
 
     private visualizeReservations() {

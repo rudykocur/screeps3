@@ -76,7 +76,7 @@ export class ScoutCreepTemplate implements CreepSpawnTemplate {
     constructor(private roomName: string) {}
 
     getBodyParts(): BodyPartConstant[] {
-        return [MOVE, MOVE, WORK]
+        return [MOVE, MOVE, MOVE, MOVE, CLAIM, CLAIM]
     }
 
     getMemory(): CreepMemory {

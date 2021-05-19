@@ -12,6 +12,7 @@ import { createEventBus, EventBusMaster, IEventBus } from "bus/EventBus";
 import { SpawnerEvents, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
 import { RemoteRoomManager } from "./RemoteRoomManager";
 import { Logger } from "Logger";
+import { IOwnedRoomManager } from "interfaces";
 
 interface RoomManagerMemory {
     roomName: string
@@ -22,7 +23,7 @@ interface RoomManagerArgs {
 }
 
 @PersistentTask.register
-export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerArgs> {
+export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerArgs> implements IOwnedRoomManager {
 
     protected room: Room
 
@@ -34,6 +35,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     private roomDefender: RoomDefender | null
     private roomStats: RoomStats | null
     private needGenerator: NeedGenerator | null
+    private remoteRooms: RemoteRoomManager[]
 
     private bus: EventBusMaster<{
         [SPAWNER_BUS_NAME]: IEventBus<SpawnerEvents>
@@ -78,6 +80,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         this.roomDefender = this.findTask(RoomDefender)
         this.roomStats = this.findTask(RoomStats)
         this.needGenerator = this.findTask(NeedGenerator)
+        this.remoteRooms = this.findTasks(RemoteRoomManager)
 
         if(this.roomAnalyst) {
             this.roomDefender?.setAnalyst(this.roomAnalyst)
@@ -93,7 +96,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
         if(!this.roomAnalyst) {
             this.roomAnalyst = this.scheduleBackgroundTask(RoomAnalyst, {
-                room: this
+                roomName: this.name
             })
         }
         if(!this.roomBuilder) {
@@ -165,10 +168,8 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     }
 
     private createRemoteRoomManagers(analyst: RoomAnalyst) {
-        const remoteRoomsTasks = this.findTasks(RemoteRoomManager)
-
         for(const remoteRoomName of analyst.getExpansionDirections()) {
-            const remoteManager = remoteRoomsTasks.find(room => room.name === remoteRoomName)
+            const remoteManager = this.remoteRooms.find(room => room.name === remoteRoomName)
 
             if(!remoteManager) {
                 this.logger.important(this, 'Creating remote room manager for room', remoteRoomName)
@@ -272,6 +273,10 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     getSpawner() {
         return this.spawner
+    }
+
+    getRemoteRoom(roomName: string) {
+        return this.remoteRooms.find(room => room.name === roomName)
     }
 
     get name() {

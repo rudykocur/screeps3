@@ -1,19 +1,19 @@
+import { IRoomManager, IScheduler } from "interfaces";
 import { FillExtensionClusterTask } from "tasks/FillExtensionClusterTask";
 import { ExtensionCluster, RoomAnalyst } from "tasks/RoomAnalyst";
-import { RoomManager } from "tasks/RoomManager";
 import { TransferResourceTask } from "tasks/TransferResourceTask";
 import { WithdrawEnergy } from "tasks/WithdrawEnergy";
 import { StructureWithEnergyStorage } from "types";
 import { CreepRole, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER } from "../constants";
-import { LOWEST_PRIORITY, Need, NeedGenerator, NeedsProvider } from "./NeedGenerator";
+import { LOWEST_PRIORITY, Need, NeedsProvider } from "./NeedGenerator";
 
 export class EnergyRefillNeedsProvider implements NeedsProvider {
 
     protected roles?: CreepRole[] = undefined
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         protected analyst: RoomAnalyst
     ) {}
 
@@ -30,7 +30,7 @@ export class EnergyRefillNeedsProvider implements NeedsProvider {
             .getExtensions()
             .filter(ext => ext.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
             .map(ext => {
-                return new EnergyRefillNeed(this.generator, this.room, {
+                return new EnergyRefillNeed(this.scheduler, this.room, {
                     target: ext,
                     amount: extensionCapacity,
                     roles: this.roles,
@@ -47,8 +47,8 @@ export class SpawnRefillNeedsProvider implements NeedsProvider {
     protected roles?: CreepRole[] = undefined
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         protected analyst: RoomAnalyst
     ) {}
 
@@ -66,7 +66,7 @@ export class SpawnRefillNeedsProvider implements NeedsProvider {
             .filter(obj => obj.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
             .filter(obj => obj.store.getFreeCapacity(RESOURCE_ENERGY) <= storedEnergy)
             .map(obj => {
-                return new EnergyRefillNeed(this.generator, this.room, {
+                return new EnergyRefillNeed(this.scheduler, this.room, {
                     target: obj,
                     amount: obj.store.getFreeCapacity(RESOURCE_ENERGY),
                     roles: this.roles,
@@ -92,8 +92,8 @@ export class TowerRefillNeedsProvider implements NeedsProvider {
     protected roles?: CreepRole[] = undefined
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         protected analyst: RoomAnalyst
     ) {}
 
@@ -109,7 +109,7 @@ export class TowerRefillNeedsProvider implements NeedsProvider {
             .filter(tower => tower.store.getFreeCapacity(RESOURCE_ENERGY) > 300)
             .filter(tower => tower.store.getFreeCapacity(RESOURCE_ENERGY) <= storedEnergy)
             .map(tower => {
-                return new EnergyRefillNeed(this.generator, this.room, {
+                return new EnergyRefillNeed(this.scheduler, this.room, {
                     target: tower,
                     amount: tower.store.getFreeCapacity(RESOURCE_ENERGY),
                     roles: this.roles,
@@ -124,8 +124,8 @@ export class TowerRefillNeedsProvider implements NeedsProvider {
 
 export class ExtensionClusterNeedsProvider implements NeedsProvider {
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         protected analyst: RoomAnalyst
     ) {}
 
@@ -151,7 +151,7 @@ export class ExtensionClusterNeedsProvider implements NeedsProvider {
 
                 return true
             })
-            .map(cluster => new ExtensionClusterRefillNeed(this.generator, this.room, {
+            .map(cluster => new ExtensionClusterRefillNeed(this.scheduler, this.room, {
                 cluster: cluster,
                 amount: cluster.getMissingEnergyAmount() - (Game.reservationManager.getHandler(cluster)?.getReservedAmount() || 0)
             }))
@@ -179,8 +179,8 @@ export class ExtensionClusterRefillNeed implements Need {
     amount: number
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         {cluster, amount, roles}: {
             cluster: ExtensionCluster,
             amount: number,
@@ -195,14 +195,14 @@ export class ExtensionClusterRefillNeed implements Need {
         }
 
     generate(actor: Creep): void {
-        const parent = this.generator.scheduleBackgroundTask(FillExtensionClusterTask, {
+        const parent = this.scheduler.scheduleBackgroundTask(FillExtensionClusterTask, {
             actor: actor,
             cluster: this.cluster
         })
 
         parent.reserveResouces()
 
-        this.generator.scheduleChildTask(parent, WithdrawEnergy, {
+        this.scheduler.scheduleChildTask(parent, WithdrawEnergy, {
             actor: actor,
             room: this.room,
             amount: this.amount
@@ -233,8 +233,8 @@ export class EnergyRefillNeed implements Need {
     amount: number
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         {target, amount, roles}: {
             target: StructureWithEnergyStorage,
             amount: number,
@@ -249,12 +249,12 @@ export class EnergyRefillNeed implements Need {
         }
 
     generate(actor: Creep): void {
-        const parent = this.generator.scheduleBackgroundTask(TransferResourceTask, {
+        const parent = this.scheduler.scheduleBackgroundTask(TransferResourceTask, {
             actor: actor,
             structure: this.target
         })
 
-        this.generator.scheduleChildTask(parent, WithdrawEnergy, {
+        this.scheduler.scheduleChildTask(parent, WithdrawEnergy, {
             actor: actor,
             room: this.room,
             amount: Math.min(this.amount, actor.store.getFreeCapacity())

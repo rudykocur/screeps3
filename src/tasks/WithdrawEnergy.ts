@@ -1,10 +1,9 @@
+import { IRoomManager } from "interfaces";
 import { TaskWithActor } from "TaskManager";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { LoadEnergyTask } from "./LoadEnergyTask";
 import { PersistentTask } from "./PersistentTask";
-import { PickupResourceTask } from "./PickupResource";
 import { RoomAnalyst } from "./RoomAnalyst";
-import { RoomManager } from "./RoomManager";
 
 interface WithdrawEnergyMemory {
     actorId: Id<Creep>
@@ -14,7 +13,7 @@ interface WithdrawEnergyMemory {
 
 interface WithdrawEnergyArgs {
     actor: Creep
-    room: RoomManager
+    room: IRoomManager
     amount?: number
 }
 
@@ -22,7 +21,7 @@ interface WithdrawEnergyArgs {
 export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, WithdrawEnergyArgs> implements TaskWithActor {
 
     private actor?: Creep | null
-    private room?: RoomManager | null
+    private room?: IRoomManager | null
     private analyst?: RoomAnalyst | null
     private amount?: number
 

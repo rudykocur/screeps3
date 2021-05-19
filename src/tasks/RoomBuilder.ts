@@ -1,17 +1,17 @@
 import { RunResultType } from "./AbstractTask";
-import { RoomManager } from "./RoomManager";
 import { PersistentTask } from "./PersistentTask";
 import { RoomAnalyst } from "./RoomAnalyst";
 import { getPositionsAround } from "utils/MapUtils";
 import { isBuildable } from "utils/common";
 import { Logger } from "Logger";
+import { IRoomManager } from "interfaces";
 
 interface RoomBuilderMemory {
     roomName: string
 }
 
 interface RoomBuilderArgs {
-    room: RoomManager
+    room: IRoomManager
 }
 
 const MAX_ROAD_CONSTRUCTION_SITES = 5

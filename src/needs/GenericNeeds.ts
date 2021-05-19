@@ -1,18 +1,17 @@
 import { CreepRole, CREEP_ROLE_GENERIC } from "../constants"
-import { RoomManager } from "tasks/RoomManager"
 import { UpgradeControllerTask } from "tasks/UpgradeControllerTask"
 import { WithdrawEnergy } from "tasks/WithdrawEnergy"
-import { Need, NeedGenerator, LOWEST_PRIORITY, NeedsProvider } from "./NeedGenerator"
-import { Optional } from "types"
+import { Need, LOWEST_PRIORITY, NeedsProvider } from "./NeedGenerator"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
 import { HarvestAndLoadTask } from "tasks/HarvestAndLoadTask"
 import { DepositEnergy } from "tasks/DepositEnergy"
+import { IRoomManager, IScheduler } from "interfaces"
 
 export class GenericNeedsProvider implements NeedsProvider {
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         private analyst: RoomAnalyst,
     ) {}
 
@@ -24,7 +23,7 @@ export class GenericNeedsProvider implements NeedsProvider {
         }
 
         return [
-            new UpgradeControllerNeed(this.generator, this.room)
+            new UpgradeControllerNeed(this.scheduler, this.room)
         ]
     }
 
@@ -36,14 +35,14 @@ export class GenericNeedsProvider implements NeedsProvider {
 export class HarvestEnergyAtCriticalNeedsProvider implements NeedsProvider {
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         private analyst: RoomAnalyst,
     ) {}
 
     generate(): Need[] {
         return this.analyst.getSafeSources().map(source => {
-            return new HarvestEnergyNeed(this.generator, this.room, {
+            return new HarvestEnergyNeed(this.scheduler, this.room, {
                 source: source
             })
         })
@@ -61,8 +60,8 @@ export class HarvestEnergyNeed implements Need {
     private source: Source
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager,
+        private scheduler: IScheduler,
+        private room: IRoomManager,
         {source}: {
             source: Source
         }) {
@@ -70,12 +69,12 @@ export class HarvestEnergyNeed implements Need {
         }
 
     generate(actor: Creep) {
-        const parent = this.generator.scheduleBackgroundTask(DepositEnergy, {
+        const parent = this.scheduler.scheduleBackgroundTask(DepositEnergy, {
             actor: actor,
             room: this.room,
         })
 
-        this.generator.scheduleChildTask(parent, HarvestAndLoadTask, {
+        this.scheduler.scheduleChildTask(parent, HarvestAndLoadTask, {
             actor: actor,
             source: this.source,
 
@@ -96,16 +95,17 @@ export class UpgradeControllerNeed implements Need {
     infinite = true
 
     constructor(
-        private generator: NeedGenerator,
-        private room: RoomManager) {}
+        private scheduler: IScheduler,
+        private room: IRoomManager
+    ) {}
 
     generate(actor: Creep) {
-        const parent = this.generator.scheduleBackgroundTask(UpgradeControllerTask, {
+        const parent = this.scheduler.scheduleBackgroundTask(UpgradeControllerTask, {
             actor: actor,
             room: this.room
         })
 
-        this.generator.scheduleChildTask(parent, WithdrawEnergy, {
+        this.scheduler.scheduleChildTask(parent, WithdrawEnergy, {
             actor: actor,
             room: this.room
         })

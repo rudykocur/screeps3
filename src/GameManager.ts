@@ -2,6 +2,7 @@ import { TaskManager } from "TaskManager";
 import { counter } from "GlobalCounter";
 import { RoomManager } from "tasks/RoomManager";
 import { ReservationManager } from "tasks/reservation/ReservationManager";
+import { IOwnedRoomManager } from "interfaces";
 
 export class GameManager {
     private rooms: RoomManager[];
@@ -43,7 +44,7 @@ export class GameManager {
 
         Object.values(Game.rooms).forEach(room => {
             if(room.find(FIND_MY_SPAWNS).length === 0) {
-                console.log("Skipping unowned room", room);
+                // console.log("Skipping unowned room", room);
                 return
             }
 
@@ -72,7 +73,7 @@ export class GameManager {
           }
     }
 
-    getRoomManager(roomName: string) {
+    getRoomManager(roomName: string): IOwnedRoomManager | undefined {
         return this.rooms.find(mgr => mgr.name === roomName)
     }
 

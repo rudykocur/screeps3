@@ -1,5 +1,4 @@
 import { RunResultType } from "./AbstractTask";
-import { RoomManager } from "./RoomManager";
 import { PersistentTask } from "./PersistentTask";
 import { getPositionsAround } from "../utils/MapUtils"
 import { packPos, unpackPos } from "../utils/packrat"
@@ -11,7 +10,6 @@ import { Logger } from "Logger";
 interface RoomAnalystMemory {
     roomName: string,
     miningSites?: MiningSiteMemory[]
-    sources?: Id<Source>[]
     safeSources?: Id<Source>[]
     constructionSites?: Id<ConstructionSite>[]
     spawns?: Id<StructureSpawn>[]
@@ -41,7 +39,7 @@ interface MiningSiteMemory {
 }
 
 interface RoomAnalystArgs {
-    room: RoomManager
+    roomName: string
 }
 
 interface MiningSite {
@@ -139,7 +137,6 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     private room: Room
     private miningSites: MiningSite[]
-    private sources: Source[]
     private safeSources: Source[]
     private constructionSites: ConstructionSite[]
     private spawns: StructureSpawn[]
@@ -155,7 +152,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     initMemory(args: RoomAnalystArgs): RoomAnalystMemory {
         return {
-            roomName: args.room.name,
+            roomName: args.roomName,
         }
     }
 
@@ -218,12 +215,23 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             )
         }
 
-        this.creeps = this.room.find(FIND_MY_CREEPS)
+        if(this.room) {
+            this.creeps = this.room.find(FIND_MY_CREEPS)
+        }
+        else {
+            this.creeps = []
+        }
     }
 
     doInit() {}
 
     doRun(): RunResultType {
+        if(!this.room) {
+            this.logger.important(this, 'NOT running analysis - no room available')
+            this.sleep(15)
+            return
+        }
+
         this.logger.important(this, 'Running analysis ...')
 
         this.analyzeStorage()
@@ -272,12 +280,24 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             source => source.pos.findInRange(FIND_HOSTILE_STRUCTURES, 5).length === 0
         )
 
-        this.memory.sources = sources.map(source => source.id)
         this.memory.safeSources = safeSources.map(source => source.id)
     }
 
     private analyzeMiningSites() {
         const spawn = this.room.find(FIND_MY_SPAWNS)[0];
+        let roadsPos: RoomPosition
+
+        if(spawn) {
+            roadsPos = spawn.pos
+        }
+        else {
+            if(this.room.controller) {
+                roadsPos = this.room.controller.pos
+            }
+            else {
+                roadsPos = new RoomPosition(25, 25, this.memory.roomName)
+            }
+        }
 
         const newSites: MiningSite[] = [];
 
@@ -329,7 +349,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             }).map(pos => {
                 return {
                     pos: pos,
-                    distance: pos.findPathTo(spawn.pos).length
+                    distance: pos.findPathTo(roadsPos).length
                 }
             }).sort((a, b) => {
                 return a.distance - b.distance
@@ -583,6 +603,6 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     }
 
     toString() {
-        return `[RoomAnalyst ${this.room.name}]`
+        return `[RoomAnalyst ${this.memory.roomName}]`
     }
 }

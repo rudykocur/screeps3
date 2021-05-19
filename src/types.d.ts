@@ -39,6 +39,7 @@ type StructureWithGeneralStorage = StructureContainer | StructureStorage
 
 interface ConfigOptions {
     visualizeTaskTree?: boolean
+    visualizeReservations?: boolean
     loggers: Record<string, LogLevel>
 }
 
