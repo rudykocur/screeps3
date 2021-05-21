@@ -3,6 +3,10 @@ import { counter } from "GlobalCounter";
 import { RoomManager } from "tasks/RoomManager";
 import { ReservationManager } from "tasks/reservation/ReservationManager";
 import { IOwnedRoomManager } from "interfaces";
+import { Logger } from "Logger";
+
+const logger = new Logger('global')
+logger.important('Global reset ...')
 
 export class GameManager {
     private rooms: RoomManager[];
@@ -62,12 +66,14 @@ export class GameManager {
         this.taskManager.run();
 
         this.taskManager.visualize();
+
+        this.taskManager.finalize()
     }
 
     cleanupCreeps() {
         for (const name in Memory.creeps) {
             if (!(name in Game.creeps)) {
-                console.log("Creep", name, "died!");
+                logger.info("Creep", name, "died!");
                 delete Memory.creeps[name];
             }
           }

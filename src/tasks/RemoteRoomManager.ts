@@ -70,7 +70,7 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
 
         if(!this.room) {
             if(!this.memory.scout?.actorName) {
-                // this.spawnId = this.parentRoom.getSpawner().enqueue(new ScoutCreepTemplate(this.name))
+                this.spawnId = this.parentRoom.getSpawner().enqueue(new ScoutCreepTemplate(this.name))
             }
         }
         else {
@@ -114,10 +114,6 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
         return []
     }
 
-    getRemoteRoom() {
-        return undefined
-    }
-
     get name() {
         return this.memory.roomName
     }
@@ -127,6 +123,6 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
     }
 
     toString() {
-        return `[RemoteRoomManager ${this.memory.roomName} parent=${this.parentRoom}]`
+        return `[RemoteRoomManager ${this.memory.roomName} parent=${this.memory.parentRoomName}]`
     }
 }

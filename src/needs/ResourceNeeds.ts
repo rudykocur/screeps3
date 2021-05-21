@@ -1,9 +1,9 @@
 import { CreepRole, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER } from "../constants"
 import { DepositEnergy } from "tasks/DepositEnergy"
 import { PickupResourceTask } from "tasks/PickupResource"
-import { ResourceTransferNeed, LOWEST_PRIORITY, NeedsProvider, Need } from "./NeedGenerator"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
 import { IRoomManager, IScheduler } from "interfaces"
+import { NeedsProvider, Need, ResourceTransferNeed, LOWEST_PRIORITY, NeedPriority } from "./interfaces"
 
 export class ResourcePickupProvider implements NeedsProvider {
     protected roles?: CreepRole[]
@@ -55,6 +55,7 @@ export class ResourcePickupAtCriticalProvider extends ResourcePickupProvider {
 export class ResourcePickupNeed implements ResourceTransferNeed {
     roles: CreepRole[] = [CREEP_ROLE_HAULER]
     infinite = false
+    priority = NeedPriority.NORMAL
 
     public amount: number
     public resource: Resource

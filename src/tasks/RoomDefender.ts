@@ -34,9 +34,15 @@ export class RoomDefender extends PersistentTask<RoomDefenderMemory, RoomDefende
         }
 
         const enemies = this.room.find(FIND_HOSTILE_CREEPS)
+        const toHeal = this.room.find(FIND_MY_CREEPS, {
+            filter: creep => creep.hits < creep.hitsMax
+        })
 
         if(enemies.length > 0) {
             this.defendRoom(this.analyst, enemies)
+        }
+        else if(toHeal.length > 0) {
+            this.healCreeps(this.analyst, toHeal)
         }
         else {
             this.sleep(10)
@@ -48,6 +54,15 @@ export class RoomDefender extends PersistentTask<RoomDefenderMemory, RoomDefende
             const enemy = tower.pos.findClosestByRange(enemies)
             if(enemy) {
                 tower.attack(enemy)
+            }
+        }
+    }
+
+    healCreeps(analyst: RoomAnalyst, toHeal: Creep[]) {
+        for(const tower of analyst.getTowers()) {
+            const creep = tower.pos.findClosestByRange(toHeal)
+            if(creep) {
+                tower.heal(creep)
             }
         }
     }

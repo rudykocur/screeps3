@@ -1,8 +1,8 @@
 import { CreepRole, CREEP_ROLE_MINER } from "../constants"
 import { MinerCreep } from "tasks/creeps/MinerCreep"
-import { Need, NeedsProvider } from "./NeedGenerator"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
 import { IScheduler } from "interfaces"
+import { NeedsProvider, Need, NeedPriority } from "./interfaces"
 
 export class MineNeedsProvider implements NeedsProvider {
 
@@ -34,6 +34,7 @@ export class MineNeedsProvider implements NeedsProvider {
 export class MineSourceNeed implements Need {
     roles: CreepRole[] = [CREEP_ROLE_MINER]
     infinite = false
+    priority = NeedPriority.NORMAL
 
     source: Source
     container?: StructureContainer | null

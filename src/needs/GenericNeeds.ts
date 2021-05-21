@@ -1,11 +1,11 @@
 import { CreepRole, CREEP_ROLE_GENERIC } from "../constants"
 import { UpgradeControllerTask } from "tasks/UpgradeControllerTask"
 import { WithdrawEnergy } from "tasks/WithdrawEnergy"
-import { Need, LOWEST_PRIORITY, NeedsProvider } from "./NeedGenerator"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
 import { HarvestAndLoadTask } from "tasks/HarvestAndLoadTask"
 import { DepositEnergy } from "tasks/DepositEnergy"
 import { IRoomManager, IScheduler } from "interfaces"
+import { NeedsProvider, Need, LOWEST_PRIORITY, NeedPriority } from "./interfaces"
 
 export class GenericNeedsProvider implements NeedsProvider {
 
@@ -56,6 +56,7 @@ export class HarvestEnergyAtCriticalNeedsProvider implements NeedsProvider {
 export class HarvestEnergyNeed implements Need {
     roles: CreepRole[] = [CREEP_ROLE_GENERIC]
     infinite = false
+    priority = NeedPriority.LOW
 
     private source: Source
 
@@ -93,6 +94,7 @@ export class HarvestEnergyNeed implements Need {
 export class UpgradeControllerNeed implements Need {
     roles: CreepRole[] = [CREEP_ROLE_GENERIC]
     infinite = true
+    priority = NeedPriority.LAST
 
     constructor(
         private scheduler: IScheduler,

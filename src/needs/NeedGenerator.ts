@@ -1,36 +1,14 @@
-import { CreepRole } from "../constants";
 import { RunResult, RunResultType } from "tasks/AbstractTask";
 import { PersistentTask } from "tasks/PersistentTask";
 import { RoomAnalyst } from "tasks/RoomAnalyst";
 import { BuildNeedProvider, RepairNeedsProvider } from "./BuilderNeeds";
 import { ResourcePickupAtCriticalProvider, ResourcePickupProvider } from "./ResourceNeeds";
-import { EmptyContainerAtCriticalNeedProvider, EmptyContainerNeedProvider } from "./EmptyContainersNeeds";
+import { EmptyContainerAtCriticalNeedProvider, EmptyContainerNeedProvider, EmptyRuinNeedProvider, EmptyTombstoneNeedProvider } from "./EmptyContainersNeeds";
 import { MineNeedsProvider } from "./MineNeeds";
 import { GenericNeedsProvider, HarvestEnergyAtCriticalNeedsProvider } from "./GenericNeeds";
 import { EnergyRefillAtCriticalNeedProvider, EnergyRefillNeedsProvider, ExtensionClusterNeedsProvider, SpawnRefillAtCriticalNeedProvider, SpawnRefillNeedsProvider, TowerRefillNeedsProvider } from "./EnergyRefillNeeds";
 import { IRoomManager } from "interfaces";
-
-export const LOWEST_PRIORITY = 99999999
-
-export interface Need {
-    roles: CreepRole[]
-    infinite: boolean
-
-    generate(actor: Creep): void
-    calculateCost(actor: Creep): number
-}
-
-export interface NeedsProvider {
-    generate(): Need[]
-    isActive(): boolean
-}
-
-export interface ResourceTransferNeed extends Need {
-    amount: number
-    resource?: Resource
-    container?: StructureContainer
-    tombstone?: Tombstone
-}
+import { INeedGenerator, Need, NeedsProvider } from "./interfaces";
 
 interface NeedGeneratorMemory {
     roomName: string
@@ -40,7 +18,7 @@ interface NeedGeneratorArgs {
     room: IRoomManager
 }
 
-export abstract class NeedGeneratorBase extends PersistentTask<NeedGeneratorMemory, NeedGeneratorArgs> {
+export abstract class NeedGeneratorBase extends PersistentTask<NeedGeneratorMemory, NeedGeneratorArgs> implements INeedGenerator {
 
     protected room?: IRoomManager | null
     protected analyst?: RoomAnalyst | null
@@ -153,6 +131,8 @@ export class NeedGenerator extends NeedGeneratorBase {
                 new BuildNeedProvider(this, this.room, this.analyst),
                 new RepairNeedsProvider(this, this.room, this.analyst),
                 new GenericNeedsProvider(this, this.room, this.analyst),
+                new EmptyTombstoneNeedProvider(this, this.room, this.analyst),
+                new EmptyRuinNeedProvider(this, this.room, this.analyst),
                 new EmptyContainerAtCriticalNeedProvider(this, this.room, this.analyst),
                 new EnergyRefillAtCriticalNeedProvider(this, this.room, this.analyst),
                 new ResourcePickupAtCriticalProvider(this, this.room, this.analyst),

@@ -133,6 +133,11 @@ export class TaskManager {
                     this.logger.critical('FAILED TO RUN TASK', task, '::', e, '::', e.stack)
                 }
             }
+
+            if(Game.cpu.getUsed() + 50 > Game.cpu.tickLimit) {
+                this.logger.critical('TICK LIMIT REACHED', `used=${Game.cpu.getUsed()}, tickLimit=${Game.cpu.tickLimit} bucket=${Game.cpu.bucket}`)
+                return
+            }
         }
 
         for(const callback of this.lastCallbacks) {
@@ -306,6 +311,12 @@ export class TaskManager {
     doVisualize() {
         if(Memory.config?.visualizeTaskTree) {
             this.printTaskTree()
+        }
+    }
+
+    finalize() {
+        if(Game.cpu.getUsed() > Game.cpu.limit) {
+            this.logger.warn('CPU Limit reached', `used=${Game.cpu.getUsed()}, limit=${Game.cpu.limit}, bucket=${Game.cpu.bucket}`)
         }
     }
 

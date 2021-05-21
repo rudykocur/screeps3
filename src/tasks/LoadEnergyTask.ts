@@ -1,4 +1,4 @@
-import { StructureWithEnergyStorage, StructureWithGeneralStorage } from "types";
+import { StructureWithEnergyStorage, StructureWithGeneralStorage, WithdrawableStructureWithGeneralStorage } from "types";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { MoveTask } from "./MoveTask";
 import { PersistentTask } from "./PersistentTask";
@@ -6,14 +6,14 @@ import { PersistentTask } from "./PersistentTask";
 interface LoadEnergyMemory {
     actorId: Id<Creep>
     structureId?: Id<StructureWithEnergyStorage>
-    containerId?: Id<StructureWithGeneralStorage>
+    containerId?: Id<WithdrawableStructureWithGeneralStorage>
     amount?: number
 }
 
 interface LoadEnergyArgs {
     actor: Creep
     structure?: StructureWithEnergyStorage
-    container?: StructureWithGeneralStorage
+    container?: WithdrawableStructureWithGeneralStorage
     amount?: number
 }
 
@@ -22,7 +22,7 @@ export class LoadEnergyTask extends PersistentTask<LoadEnergyMemory, LoadEnergyA
 
     private actor?: Creep | null
     private structure?: StructureWithEnergyStorage | null
-    private container?: StructureWithGeneralStorage | null
+    private container?: WithdrawableStructureWithGeneralStorage | null
     amount?: number;
 
     initMemory(args: LoadEnergyArgs): LoadEnergyMemory {

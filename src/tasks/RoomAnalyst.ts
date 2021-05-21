@@ -30,6 +30,8 @@ interface RoomAnalystMemory {
     }[]
     towers?: Id<StructureTower>[]
     expansionDirections?: string[]
+    tombstones?: Id<Tombstone>[]
+    ruins?: Id<Ruin>[]
 }
 
 interface MiningSiteMemory {
@@ -145,6 +147,8 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     private creeps: Creep[]
     private toRepair: Structure[]
     private towers: StructureTower[]
+    private tombstones: Tombstone[]
+    private ruins: Ruin[]
 
     private storage?: RoomStorageWrapper | null
 
@@ -207,6 +211,14 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             ?.map(towerId => Game.getObjectById(towerId))
             .filter(notEmpty) || []
 
+        this.tombstones = this.memory.tombstones
+            ?.map(id => Game.getObjectById(id))
+            .filter(notEmpty) || []
+
+        this.ruins = this.memory.ruins
+            ?.map(id => Game.getObjectById(id))
+            .filter(notEmpty) || []
+
         if(this.memory.storage) {
             this.storage = new RoomStorageWrapper(
                 unpackPos(this.memory.storage.location),
@@ -243,6 +255,8 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         this.analyzeExtensions()
         this.analyzeExtensionClusters()
         this.analyzeRepairableObjects()
+        this.analyzeTombstones()
+        this.analyzeRuins()
         this.analyzeExpansionDirections()
 
         this.sleep(15)
@@ -460,7 +474,12 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         const toRepair = this.room.find(FIND_STRUCTURES)
 
         this.memory.toRepair = toRepair
-            .filter(obj => (obj.hits/obj.hitsMax) < 0.8)
+            .filter(obj => {
+                if(obj.structureType === STRUCTURE_ROAD) {
+                    return (obj.hits/obj.hitsMax) < 0.2
+                }
+                return (obj.hits/obj.hitsMax) < 0.8
+            })
             .map(obj => {
                 return {
                     id: obj.id,
@@ -469,6 +488,16 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             })
             .sort((a, b) => a.percent - b.percent)
             .slice(0, 30)
+    }
+
+    private analyzeTombstones() {
+        this.tombstones = this.room.find(FIND_TOMBSTONES)
+        this.memory.tombstones = this.tombstones.map(obj => obj.id)
+    }
+
+    private analyzeRuins() {
+        this.ruins = this.room.find(FIND_RUINS)
+        this.memory.ruins = this.ruins.map(obj => obj.id)
     }
 
     private analyzeExpansionDirections() {
@@ -581,6 +610,14 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         return this.toRepair
     }
 
+    getTombstones() {
+        return this.tombstones
+    }
+
+    getRuins() {
+        return this.ruins
+    }
+
     getDroppedResources() {
         return this.room
             .find(FIND_DROPPED_RESOURCES)
@@ -595,6 +632,14 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         const miners = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_MINER).length
         const haulers = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_HAULER).length
         return miners < 1 || haulers < 1
+    }
+
+    getHaulerCarryCapacity() {
+        if(this.room) {
+            return this.room.energyCapacityAvailable / 2
+        }
+
+        return 150
     }
 
     invalidateConstructionSites() {

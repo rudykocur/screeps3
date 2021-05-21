@@ -1,10 +1,11 @@
 import { CreepRole, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER } from "../constants"
 import { DepositEnergy } from "tasks/DepositEnergy"
 import { LoadEnergyTask } from "tasks/LoadEnergyTask"
-import { ResourceTransferNeed, LOWEST_PRIORITY, NeedsProvider, Need } from "./NeedGenerator"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
 import { notEmpty } from "utils/common"
 import { IRoomManager, IScheduler } from "interfaces"
+import { NeedsProvider, Need, LOWEST_PRIORITY, NeedPriority } from "./interfaces"
+import { WithdrawableStructureWithGeneralStorage } from "types"
 
 export class EmptyContainerNeedProvider implements NeedsProvider {
 
@@ -29,7 +30,9 @@ export class EmptyContainerNeedProvider implements NeedsProvider {
             .filter(notEmpty)
             .filter(container => {
                 const reserved = Game.reservationManager.getHandler(container)?.getReservedAmount() || 0
-                return container.store.getUsedCapacity() - reserved > 100
+                const averageCarry = this.analyst.getHaulerCarryCapacity()
+                const minimumAmount = Math.min(container.store.getCapacity()/2, averageCarry*0.66)
+                return container.store.getUsedCapacity() - reserved > minimumAmount
             })
             .map(container => {
                 return new EmptyContainerNeed(
@@ -38,6 +41,88 @@ export class EmptyContainerNeedProvider implements NeedsProvider {
                     {
                         amount: container.store.getUsedCapacity(),
                         container: container,
+                        roles: this.roles
+                    }
+                )
+            }) || []
+    }
+
+    isActive() {
+        return true
+    }
+}
+
+export class EmptyTombstoneNeedProvider implements NeedsProvider {
+
+    protected roles?: CreepRole[] = undefined
+
+    constructor(
+        private scheduler: IScheduler,
+        private room: IRoomManager,
+        protected analyst: RoomAnalyst
+    ) {}
+
+    generate(): Need[] {
+        const storage = this.analyst.getStorage()
+
+        if(!storage || storage.isFull()) {
+            return []
+        }
+
+        return this.analyst
+            .getTombstones()
+            .filter(tombstone => {
+                const reserved = Game.reservationManager.getHandler(tombstone)?.getReservedAmount() || 0
+                return tombstone.store.getUsedCapacity() - reserved > 100
+            })
+            .map(tombstone => {
+                return new EmptyContainerNeed(
+                    this.scheduler,
+                    this.room,
+                    {
+                        amount: tombstone.store.getUsedCapacity(),
+                        container: tombstone,
+                        roles: this.roles
+                    }
+                )
+            }) || []
+    }
+
+    isActive() {
+        return true
+    }
+}
+
+export class EmptyRuinNeedProvider implements NeedsProvider {
+
+    protected roles?: CreepRole[] = undefined
+
+    constructor(
+        private scheduler: IScheduler,
+        private room: IRoomManager,
+        protected analyst: RoomAnalyst
+    ) {}
+
+    generate(): Need[] {
+        const storage = this.analyst.getStorage()
+
+        if(!storage || storage.isFull()) {
+            return []
+        }
+
+        return this.analyst
+            .getRuins()
+            .filter(ruin => {
+                const reserved = Game.reservationManager.getHandler(ruin)?.getReservedAmount() || 0
+                return ruin.store.getUsedCapacity() - reserved > 100
+            })
+            .map(ruin => {
+                return new EmptyContainerNeed(
+                    this.scheduler,
+                    this.room,
+                    {
+                        amount: ruin.store.getUsedCapacity(),
+                        container: ruin,
                         roles: this.roles
                     }
                 )
@@ -61,26 +146,31 @@ export class EmptyContainerAtCriticalNeedProvider extends EmptyContainerNeedProv
     }
 }
 
-export class EmptyContainerNeed implements ResourceTransferNeed {
+export class EmptyContainerNeed implements Need {
     roles: CreepRole[] = [CREEP_ROLE_HAULER]
     infinite = false
+    priority = NeedPriority.NORMAL
 
     public amount: number
-    public container: StructureContainer
+    public container: WithdrawableStructureWithGeneralStorage
 
     constructor(
         private scheduler: IScheduler,
         private room: IRoomManager,
-        {amount, container, roles}: {
+        {amount, container, roles, priority}: {
             amount: number,
-            container: StructureContainer,
-            roles?: CreepRole[]
+            container: WithdrawableStructureWithGeneralStorage,
+            roles?: CreepRole[],
+            priority?: NeedPriority
         }
         ) {
             this.amount = amount
             this.container = container
             if(roles) {
                 this.roles = roles
+            }
+            if(priority) {
+                this.priority = priority
             }
         }
 

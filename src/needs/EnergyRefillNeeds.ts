@@ -5,7 +5,7 @@ import { TransferResourceTask } from "tasks/TransferResourceTask";
 import { WithdrawEnergy } from "tasks/WithdrawEnergy";
 import { StructureWithEnergyStorage } from "types";
 import { CreepRole, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER } from "../constants";
-import { LOWEST_PRIORITY, Need, NeedsProvider } from "./NeedGenerator";
+import { NeedsProvider, Need, LOWEST_PRIORITY, NeedPriority } from "./interfaces";
 
 export class EnergyRefillNeedsProvider implements NeedsProvider {
 
@@ -174,6 +174,7 @@ export class EnergyRefillAtCriticalNeedProvider extends EnergyRefillNeedsProvide
 export class ExtensionClusterRefillNeed implements Need {
     roles: CreepRole[] = [CREEP_ROLE_HAULER]
     infinite = false
+    priority = NeedPriority.HIGH
 
     cluster: ExtensionCluster
     amount: number
@@ -226,8 +227,9 @@ export class ExtensionClusterRefillNeed implements Need {
 }
 
 export class EnergyRefillNeed implements Need {
-    roles: CreepRole[] = [CREEP_ROLE_HAULER];
-    infinite: boolean = false;
+    roles: CreepRole[] = [CREEP_ROLE_HAULER]
+    infinite: boolean = false
+    priority = NeedPriority.NORMAL
 
     target: StructureWithEnergyStorage
     amount: number

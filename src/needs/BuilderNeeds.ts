@@ -1,12 +1,12 @@
 import { CreepRole, CREEP_ROLE_BUILDER } from "../constants"
 import { BuildTask } from "tasks/BuildTask"
 import { WithdrawEnergy } from "tasks/WithdrawEnergy"
-import { LOWEST_PRIORITY, Need, NeedsProvider } from "./NeedGenerator"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
 import { PickupResourceTask } from "tasks/PickupResource"
 import { GenericTask } from "TaskManager"
 import { RepairTask } from "tasks/RepairTask"
 import { IRoomManager, IScheduler } from "interfaces"
+import { NeedsProvider, Need, LOWEST_PRIORITY, NeedPriority } from "./interfaces"
 
 export class BuildNeedProvider implements NeedsProvider {
 
@@ -65,6 +65,7 @@ export class RepairNeedsProvider implements NeedsProvider {
 export abstract class DoActionWithEnergyNeed implements Need {
     roles: CreepRole[] = [CREEP_ROLE_BUILDER]
     infinite = false
+    priority = NeedPriority.NORMAL
 
     constructor(
         protected scheduler: IScheduler,

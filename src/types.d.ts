@@ -36,6 +36,7 @@ interface RoomPositionJson {
 
 type StructureWithEnergyStorage = StructureSpawn | StructureExtension | StructureTower
 type StructureWithGeneralStorage = StructureContainer | StructureStorage
+type WithdrawableStructureWithGeneralStorage = StructureWithGeneralStorage | Tombstone | Ruin
 
 interface ConfigOptions {
     visualizeTaskTree?: boolean
