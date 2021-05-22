@@ -8,7 +8,10 @@ import { MineNeedsProvider } from "./MineNeeds";
 import { GenericNeedsProvider, HarvestEnergyAtCriticalNeedsProvider } from "./GenericNeeds";
 import { EnergyRefillAtCriticalNeedProvider, EnergyRefillNeedsProvider, ExtensionClusterNeedsProvider, SpawnRefillAtCriticalNeedProvider, SpawnRefillNeedsProvider, TowerRefillNeedsProvider } from "./EnergyRefillNeeds";
 import { IRoomManager } from "interfaces";
-import { INeedGenerator, Need, NeedsProvider } from "./interfaces";
+import { INeedGenerator, Need, NeedPriority, NeedsProvider } from "./interfaces";
+import { Logger } from "Logger";
+import _ from "lodash"
+import { CreepRole } from "../constants";
 
 interface NeedGeneratorMemory {
     roomName: string
@@ -24,6 +27,10 @@ export abstract class NeedGeneratorBase extends PersistentTask<NeedGeneratorMemo
     protected analyst?: RoomAnalyst | null
     private _needs?: Need[]
     protected providers: NeedsProvider[] = []
+
+    protected logger = new Logger('NeedGenerator')
+
+    protected priorityOrder = [NeedPriority.CRITICAL, NeedPriority.HIGH, NeedPriority.NORMAL, NeedPriority.LOW, NeedPriority.LAST]
 
     initMemory(args: NeedGeneratorArgs): NeedGeneratorMemory {
         return {
@@ -58,7 +65,7 @@ export abstract class NeedGeneratorBase extends PersistentTask<NeedGeneratorMemo
         const jobless = actors.filter(creep =>
             tasks.find(job => {
                 if(!('getActorId' in job)) {
-                    console.log(`<span style="color: red">Task ${job} does not have actorId!!!</span>`)
+                    this.logger.error(`Task ${job} does not have actorId!!!`)
                 }
                 return 'getActorId' in job && job.getActorId() === creep.id
             }) === undefined
@@ -70,30 +77,58 @@ export abstract class NeedGeneratorBase extends PersistentTask<NeedGeneratorMemo
 
         const needs = this.generateNeeds()
 
-        // console.log(this, `<span style="color: yellow">assigning tasks to ${jobless.length} actors with role [${role}] ...</span>`)
-        // console.log(this, `generated needs (${needs.length}): ${needs}`)
+        this.logger.debug(this, `assigning tasks actors=${jobless.length} role=${role} needs=${needs.length} `)
 
         for(const actor of jobless) {
 
-            const applicableNeeds = needs.filter(need => need.roles.indexOf(role) >= 0)
-            const sortedNeeds = applicableNeeds
-                .map(need => {return {need, cost: need.calculateCost(actor)}})
-                .sort((a, b) => a.cost - b.cost)
-                .map(item => item.need)
+            this.logger.debug(this, `Looking task for role=${role} actor=${actor}`)
 
-            const cheapestNeed = sortedNeeds[0]
+            let selectedNeed: Need | undefined
 
-            const needIndex = needs.findIndex(need => need === cheapestNeed)
+            const grouped = _.groupBy(needs, need => need.priority)
+            for(const priority of this.priorityOrder) {
+                const needsAtLevel = grouped[priority]
+
+                if(!needsAtLevel) {
+                    continue
+                }
+
+                this.logger.debug(this, `Looking for needs with priority ${priority} (${needsAtLevel.length}): `, needsAtLevel)
+
+                selectedNeed = this.findNeed(needsAtLevel, actor, role)
+
+                if(selectedNeed) {
+                    break
+                }
+            }
+
+            this.logger.debug(this, `Found need priority=${selectedNeed?.priority} need=${selectedNeed}`)
+
+            if(!selectedNeed) {
+                continue
+            }
+
+            const needIndex = needs.findIndex(need => need === selectedNeed)
             if(needIndex < 0) {
                 continue
             }
 
-            cheapestNeed.generate(actor)
+            selectedNeed.generate(actor)
 
-            if(!cheapestNeed.infinite) {
+            if(!selectedNeed.infinite) {
                 needs.splice(needIndex, 1)
             }
         }
+    }
+
+    findNeed(needs: Need[], actor: Creep, role: CreepRole) {
+        const applicableNeeds = needs.filter(need => need.roles.indexOf(role) >= 0)
+        const sortedNeeds = applicableNeeds
+            .map(need => {return {need, cost: need.calculateCost(actor)}})
+            .sort((a, b) => a.cost - b.cost)
+            .map(item => item.need)
+
+        return sortedNeeds[0]
     }
 
     generateNeeds(): Need[] {
@@ -102,6 +137,7 @@ export abstract class NeedGeneratorBase extends PersistentTask<NeedGeneratorMemo
         }
 
         if(!this._needs) {
+            this.logger.debug(this, "Generating needs")
             this._needs = this.providers
                 .filter(provider => provider.isActive())
                 .map(provider => provider.generate()).reduce((a, b) => a.concat(b));
