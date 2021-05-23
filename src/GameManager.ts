@@ -6,7 +6,7 @@ import { IOwnedRoomManager } from "interfaces";
 import { Logger } from "Logger";
 
 const logger = new Logger('global')
-logger.important('Global reset ...')
+logger.warn('Global reset ...')
 
 export class GameManager {
     private rooms: RoomManager[];

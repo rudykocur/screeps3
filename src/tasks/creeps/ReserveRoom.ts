@@ -1,10 +1,9 @@
-import { IRoomManager } from "interfaces";
+import { IRemoteRoom, IRoomManager } from "interfaces";
 import { Logger } from "Logger";
 import { TaskWithActor } from "TaskManager";
 import { RunResult, RunResultType } from "tasks/AbstractTask";
 import { MoveTask } from "tasks/MoveTask";
 import { PersistentTask } from "tasks/PersistentTask";
-import { RemoteRoomManager } from "tasks/RemoteRoomManager";
 
 
 interface ReserveRoomMemory {
@@ -14,7 +13,7 @@ interface ReserveRoomMemory {
 }
 
 interface ReserveRoomArgs {
-    room: RemoteRoomManager
+    room: IRemoteRoom
     actor: Creep
 }
 
@@ -45,7 +44,7 @@ export class ReserveRoom extends PersistentTask<ReserveRoomMemory, ReserveRoomAr
         }
     }
     doRun(): RunResultType {
-        if(!this.manager || !this.actor) {
+        if(!this.manager || !this.actor || !this.room) {
             return RunResult.DONE
         }
 

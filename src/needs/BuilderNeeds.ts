@@ -7,6 +7,8 @@ import { GenericTask } from "TaskManager"
 import { RepairTask } from "tasks/RepairTask"
 import { IRoomManager, IScheduler } from "interfaces"
 import { NeedsProvider, Need, LOWEST_PRIORITY, NeedPriority } from "./interfaces"
+import { notEmpty } from "utils/common"
+import { LoadEnergyTask } from "tasks/LoadEnergyTask"
 
 export class BuildNeedProvider implements NeedsProvider {
 
@@ -14,6 +16,7 @@ export class BuildNeedProvider implements NeedsProvider {
         private scheduler: IScheduler,
         private room: IRoomManager,
         private analyst: RoomAnalyst,
+        private remote: boolean,
     ) {}
 
     generate(): Need[] {
@@ -26,11 +29,17 @@ export class BuildNeedProvider implements NeedsProvider {
 
         return this.analyst
             .getConstructionSites()
-            .map(site => new BuildSiteNeed(this.scheduler, this.room, this.analyst, {site: site})) || []
+            .map(site => new BuildSiteNeed(this.scheduler, this.room, this.analyst, {site: site, remote: this.remote})) || []
     }
 
     isActive() {
         return !this.analyst.isRoomAtCritical()
+    }
+}
+
+export class RemoteBuildNeedProvider extends BuildNeedProvider {
+    isActive() {
+        return true
     }
 }
 
@@ -90,11 +99,41 @@ export abstract class DoActionWithEnergyNeed implements Need {
             const resources = this.room.getDroppedResources(true)
 
             if(resources.length > 0) {
-                const nearest = actor.pos.findClosestByRange(resources);
+                let nearest;
+
+                if(actor.pos.roomName === this.room.name) {
+                    nearest = actor.pos.findClosestByRange(resources)
+                }
+                else {
+                    nearest = resources[0]
+                }
+
                 this.scheduler.scheduleChildTask(parent, PickupResourceTask, {
                     actor: actor,
                     resource: nearest
                 })
+            }
+            else {
+                const containers = this.analyst.getMiningSites()
+                    .filter(site => (site.container?.store.getUsedCapacity(RESOURCE_ENERGY) || 0) > 300)
+                    .map(site => site.container)
+                    .filter(notEmpty)
+
+                if(containers.length > 0) {
+                    let nearest: StructureContainer;
+
+                    if(actor.pos.roomName === this.room.name) {
+                        nearest = actor.pos.findClosestByRange(containers) || containers[0]
+                    }
+                    else {
+                        nearest = containers[0]
+                    }
+
+                    this.scheduler.scheduleChildTask(parent, LoadEnergyTask, {
+                        actor: actor,
+                        container: nearest
+                    })
+                }
             }
         }
     }
@@ -113,16 +152,19 @@ export abstract class DoActionWithEnergyNeed implements Need {
 export class BuildSiteNeed extends DoActionWithEnergyNeed {
 
     public site: ConstructionSite
+    public remote: boolean
 
     constructor(
         scheduler: IScheduler,
         room: IRoomManager,
         analyst: RoomAnalyst,
-        {site}: {
-            site: ConstructionSite
+        {site, remote}: {
+            site: ConstructionSite,
+            remote: boolean,
         }) {
             super(scheduler, room, analyst)
             this.site = site
+            this.remote = remote
         }
 
     generateParentTask(actor: Creep) {

@@ -1,5 +1,5 @@
 import { CreepCreatedEvent, SpawnerChannel, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
-import { IOwnedRoomManager, IRoomManager } from "interfaces";
+import { IOwnedRoomManager, IRemoteRoom } from "interfaces";
 import { Logger } from "Logger";
 import { RemoteRoomNeedGenerator } from "needs/NeedGenerator";
 import { ScoutCreepTemplate } from "spawner/CreepSpawnTemplate";
@@ -25,7 +25,7 @@ interface ScoutMemoryData {
 }
 
 @PersistentTask.register
-export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, RemoteRoomManagerArgs> implements IRoomManager{
+export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, RemoteRoomManagerArgs> implements IRemoteRoom {
 
     private room?: Room | null
     private parentRoom?: IOwnedRoomManager
@@ -46,12 +46,14 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
         }
     }
 
+    doPreInit() {
+        this.analyst = this.findTask(RoomAnalyst)
+        this.needGenerator = this.findTask(RemoteRoomNeedGenerator)
+    }
+
     doInit(): void {
         this.parentRoom = Game.manager.getRoomManager(this.memory.parentRoomName)
         this.room = Game.rooms[this.memory.roomName]
-
-        this.analyst = this.findTask(RoomAnalyst)
-        this.needGenerator = this.findTask(RemoteRoomNeedGenerator)
 
         this.scout = this.memory.scout?.actorName ? Game.creeps[this.memory.scout?.actorName] : null
 
@@ -69,8 +71,9 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
         this.parentRoom.getEventBus().getBus(SPAWNER_BUS_NAME).subscribe(SpawnerChannel.CREEP_CREATED, this.handleCreepCreated.bind(this))
 
         if(!this.room) {
-            if(!this.memory.scout?.actorName) {
-                this.spawnId = this.parentRoom.getSpawner().enqueue(new ScoutCreepTemplate(this.name))
+            const spawner = this.parentRoom.getSpawner()
+            if(!this.memory.scout?.actorName && spawner) {
+                this.spawnId = spawner.enqueue(new ScoutCreepTemplate(this.name))
             }
         }
         else {
@@ -81,7 +84,8 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
             }
             if(!this.needGenerator) {
                 this.needGenerator = this.scheduleBackgroundTask(RemoteRoomNeedGenerator, {
-                    room: this
+                    room: this,
+                    parentRoom: this.parentRoom
                 })
             }
         }
@@ -110,8 +114,14 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
         return this.analyst
     }
 
+    getNeedGenerator() {
+        return this.needGenerator
+    }
+
     getDroppedResources() {
-        return []
+        return this.room?.find(FIND_DROPPED_RESOURCES, {
+            filter: res => res.amount > 100
+        }) || []
     }
 
     get name() {

@@ -14,11 +14,14 @@ export class EmptyContainerNeedProvider implements NeedsProvider {
     constructor(
         private scheduler: IScheduler,
         private room: IRoomManager,
-        protected analyst: RoomAnalyst
+        private storageRoom: IRoomManager,
+        protected analyst: RoomAnalyst,
+        protected storageAnalyst: RoomAnalyst,
+        private remote: boolean,
     ) {}
 
     generate(): Need[] {
-        const storage = this.analyst.getStorage()
+        const storage = this.storageAnalyst.getStorage()
 
         if(!storage || storage.isFull()) {
             return []
@@ -38,10 +41,12 @@ export class EmptyContainerNeedProvider implements NeedsProvider {
                 return new EmptyContainerNeed(
                     this.scheduler,
                     this.room,
+                    this.storageRoom,
                     {
                         amount: container.store.getUsedCapacity(),
                         container: container,
-                        roles: this.roles
+                        roles: this.roles,
+                        remote: this.remote,
                     }
                 )
             }) || []
@@ -79,10 +84,12 @@ export class EmptyTombstoneNeedProvider implements NeedsProvider {
                 return new EmptyContainerNeed(
                     this.scheduler,
                     this.room,
+                    this.room,
                     {
                         amount: tombstone.store.getUsedCapacity(),
                         container: tombstone,
-                        roles: this.roles
+                        roles: this.roles,
+                        remote: false,
                     }
                 )
             }) || []
@@ -120,10 +127,12 @@ export class EmptyRuinNeedProvider implements NeedsProvider {
                 return new EmptyContainerNeed(
                     this.scheduler,
                     this.room,
+                    this.room,
                     {
                         amount: ruin.store.getUsedCapacity(),
                         container: ruin,
-                        roles: this.roles
+                        roles: this.roles,
+                        remote: false,
                     }
                 )
             }) || []
@@ -153,19 +162,23 @@ export class EmptyContainerNeed implements Need {
 
     public amount: number
     public container: WithdrawableStructureWithGeneralStorage
+    public remote: boolean
 
     constructor(
         private scheduler: IScheduler,
         private room: IRoomManager,
-        {amount, container, roles, priority}: {
+        private storageRoom: IRoomManager,
+        {amount, container, roles, priority, remote}: {
             amount: number,
             container: WithdrawableStructureWithGeneralStorage,
             roles?: CreepRole[],
-            priority?: NeedPriority
+            priority?: NeedPriority,
+            remote: boolean,
         }
         ) {
             this.amount = amount
             this.container = container
+            this.remote = remote
             if(roles) {
                 this.roles = roles
             }
@@ -177,7 +190,7 @@ export class EmptyContainerNeed implements Need {
     generate(actor: Creep) {
         const parentTask = this.scheduler.scheduleBackgroundTask(DepositEnergy, {
             actor: actor,
-            room: this.room,
+            room: this.storageRoom,
         })
 
         this.scheduler.scheduleChildTask(parentTask, LoadEnergyTask, {

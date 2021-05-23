@@ -8,6 +8,7 @@ import { ResourceReservation } from "./ResourceReservation";
 import { ReservationManagerMemory, ReservationManagerArgs, ReservableHandler, IReservationManager } from "./common";
 import { ExtensionCluster } from "tasks/RoomAnalyst";
 import { ExtensionClusterReservation } from "./ExtensionClusterReservation";
+import { Logger } from "Logger";
 
 type ReserveClasses = StructureSpawn | StructureWithGeneralStorage | Resource | ExtensionCluster | Tombstone | Ruin
 
@@ -16,6 +17,8 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
 
     private reservationHandlers: ReservableHandler[] = []
     private handlersMap: Record<string, ReservableHandler> = {}
+
+    private logger = new Logger('ReservationManager')
 
     initMemory(args: ReservationManagerArgs): ReservationManagerMemory {
         return {
@@ -37,7 +40,7 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
                 const targetId = handler.getTargetId()
 
                 if(!targetId) {
-                    console.log('[ReservationManager] WARNING! No target for', handlerData.type, '::', handlerData.targetId)
+                    this.logger.debug(this, 'WARNING! No target for', handlerData.type, '::', handlerData.targetId)
                     this.memory.handlers = this.memory.handlers.filter(handler => handler.targetId !== handlerData.targetId)
                     return
                 }
@@ -46,7 +49,7 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
                 this.handlersMap[targetId] = handler
             }
             else {
-                console.log('[ReservationManager] WARNING! No implementation for', handlerData.type)
+                this.logger.error('[ReservationManager] WARNING! No implementation for', handlerData.type)
             }
         })
     }

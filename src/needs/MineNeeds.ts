@@ -9,6 +9,7 @@ export class MineNeedsProvider implements NeedsProvider {
     constructor(
         private scheduler: IScheduler,
         private analyst: RoomAnalyst,
+        private remote: boolean,
     ) {}
 
     generate(): Need[] {
@@ -22,12 +23,17 @@ export class MineNeedsProvider implements NeedsProvider {
 
         return freeSites.map(site => new MineSourceNeed(this.scheduler, {
             source: site.source,
-            container: site.container
+            container: site.container,
+            remote: this.remote
         }))
     }
 
     isActive() {
         return true
+    }
+
+    toString() {
+        return `[MineNeedsProvider]`
     }
 }
 
@@ -36,18 +42,22 @@ export class MineSourceNeed implements Need {
     infinite = false
     priority = NeedPriority.NORMAL
 
+    remote: boolean
+
     source: Source
     container?: StructureContainer | null
 
     constructor(
         private scheduler: IScheduler,
-        {source, container}: {
+        {source, container, remote}: {
             source: Source,
             container?: StructureContainer | null
+            remote: boolean
         }
     ) {
         this.source = source
         this.container = container
+        this.remote = remote
     }
 
     generate(actor: Creep) {

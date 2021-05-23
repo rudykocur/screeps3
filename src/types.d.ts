@@ -52,7 +52,8 @@ declare global {
 
     interface CreepMemory {
         role: CreepRole
-        room?: string
+        remote: boolean
+        room: string
     }
 
     interface Game {

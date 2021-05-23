@@ -69,6 +69,6 @@ export class Logger {
 
         const colorStyle = `${color.color ? 'color:'+color.color : ''};${color.background ? 'background:'+color.background : ''}`
         const first = args.shift()
-        console.log(`[<span style="color: gray">${Game.time}</span>] <span style="${colorStyle}">${first}</span>`, ...args)
+        console.log(`[<span style="color: gray">T:${Game.time}</span>] <span style="${colorStyle}">${first}</span>`, ...args)
     }
 }

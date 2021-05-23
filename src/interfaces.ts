@@ -1,5 +1,6 @@
 import { EventBusMaster, IEventBus } from "bus/EventBus";
 import { SPAWNER_BUS_NAME, SpawnerEvents } from "bus/SpawnerEvents";
+import { INeedGenerator } from "needs/interfaces";
 import { Spawner } from "Spawner";
 import { GenericTask } from "TaskManager";
 import { PersistentTask } from "tasks/PersistentTask";
@@ -9,15 +10,21 @@ import { TaskInitArgs, TaskMemory, TaskType } from "types";
 export interface IRoomManager {
     name: string
     getRoomAnalyst(): RoomAnalyst | null
+    getNeedGenerator(): INeedGenerator | null
     getDroppedResources(withStorage?: boolean): Resource<ResourceConstant>[]
 }
 
 export interface IOwnedRoomManager extends IRoomManager {
-    getRemoteRoom(roomName: string): IRoomManager | undefined
-    getSpawner(): Spawner
+    getRemoteRoom(roomName: string): IRemoteRoom | undefined
+    getSpawner(): Spawner | null | undefined
+    getMaxSpawnPower(): number
     getEventBus(): EventBusMaster<{
         [SPAWNER_BUS_NAME]: IEventBus<SpawnerEvents>
     }>
+}
+
+export interface IRemoteRoom extends IRoomManager {
+    parentRoomName: string | undefined
 }
 
 export interface IScheduler {

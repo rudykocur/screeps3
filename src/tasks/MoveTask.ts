@@ -44,6 +44,7 @@ export class MoveTask extends PersistentTask<MoveTaskMemory, MoveTaskArgs> {
 
         if(!this.target.inRangeTo(this.actor.pos, this.range)) {
             this.actor.moveTo(this.target, {
+                maxOps: 3000,
                 visualizePathStyle: {
                     fill: 'yellow'
                 }

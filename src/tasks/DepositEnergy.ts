@@ -6,13 +6,13 @@ import { TaskWithActor } from "TaskManager";
 import { IRoomManager } from "interfaces";
 
 interface DepositEnergyMemory {
-    actorId: Id<Creep>;
-    roomName: string;
+    actorId: Id<Creep>
+    roomName: string
 }
 
 interface DepositEnergyArgs {
-    actor: Creep;
-    room: IRoomManager;
+    actor: Creep
+    room: IRoomManager
 }
 
 @PersistentTask.register

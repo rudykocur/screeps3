@@ -1,3 +1,4 @@
+import { IScheduler } from "interfaces";
 import { CreepRole } from "../constants";
 
 export const LOWEST_PRIORITY = 99999999
@@ -13,6 +14,7 @@ export enum NeedPriority {
 export interface Need {
     priority: NeedPriority
     roles: CreepRole[]
+    remote?: boolean
     infinite: boolean
 
     generate(actor: Creep): void
@@ -31,6 +33,6 @@ export interface ResourceTransferNeed extends Need {
     tombstone?: Tombstone
 }
 
-export interface INeedGenerator {
+export interface INeedGenerator extends IScheduler {
     generateNeeds(): Need[]
 }

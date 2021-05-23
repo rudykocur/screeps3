@@ -1,3 +1,4 @@
+import { Logger } from "Logger";
 import { packPos, unpackPos } from "utils/packrat";
 import { RunResult, RunResultType } from "../AbstractTask";
 import { MoveTask } from "../MoveTask";
@@ -21,6 +22,8 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
     private actor?: Creep | null
     private source?: Source | null
     private containerPos?: RoomPosition | null
+
+    private logger = new Logger('MinerCreep')
 
     initMemory(args: MinerCreepArgs): MinerCreepMemory {
         return {
@@ -48,11 +51,11 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
 
         if(!this.memory.mining) {
             if(this.containerPos && this.actor.pos.isEqualTo(this.containerPos)) {
-                console.log(this, 'Reached mining container!')
+                this.logger.info(this, 'Reached mining container!')
                 this.memory.mining = true
             }
             else if(this.actor.pos.isNearTo(this.source)) {
-                console.log(this, 'Reached source!')
+                this.logger.info(this, 'Reached source!')
                 this.memory.mining = true
             }
         }

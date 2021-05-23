@@ -1,8 +1,8 @@
 import { Spawner } from "Spawner";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { PersistentTask } from "./PersistentTask";
-import { BuilderCreepTemplate, GenericCreepTemplate, HaulerCreepTemplate, MinerCreepTemplate } from "spawner/CreepSpawnTemplate";
-import { CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER, CREEP_ROLE_MINER } from "../constants";
+import { BuilderCreepTemplate, GenericCreepTemplate, HaulerCreepTemplate, MinerCreepTemplate, ReserveCreepTemplate } from "spawner/CreepSpawnTemplate";
+import { CreepRole, CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER, CREEP_ROLE_MINER, CREEP_ROLE_RESERVE } from "../constants";
 import { RoomAnalyst } from "./RoomAnalyst";
 import { RoomBuilder } from "./RoomBuilder";
 import { NeedGenerator } from "needs/NeedGenerator";
@@ -27,7 +27,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     protected room: Room
 
-    private spawner: Spawner;
+    private spawner?: Spawner | undefined;
     private temporaryStorage: Flag | undefined;
     private creeps: Creep[];
     private roomAnalyst: RoomAnalyst | null
@@ -64,13 +64,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
             return
         }
 
-        const spawns = this.room.find<StructureSpawn>(FIND_MY_STRUCTURES, {
-            filter: obj => obj.structureType == STRUCTURE_SPAWN
-        });
-
-        this.spawner = new Spawner(spawns, this.room.name, this);
-
-        this.creeps = this.room.find(FIND_MY_CREEPS);
+        this.creeps = Object.values(Game.creeps).filter(creep => creep.memory.room === this.name);
 
         this.temporaryStorage = Object.values(Game.flags).find(flag =>
             flag.pos.roomName === this.room.name && flag.color === COLOR_YELLOW && flag.secondaryColor == COLOR_YELLOW)
@@ -82,10 +76,19 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         this.needGenerator = this.findTask(NeedGenerator)
         this.remoteRooms = this.findTasks(RemoteRoomManager)
 
+        this.remoteRooms.forEach(remoteRoom => {
+            const generator = remoteRoom.getNeedGenerator()
+            if(generator) {
+                this.needGenerator?.registerGenerator(generator)
+            }
+        })
+
         if(this.roomAnalyst) {
             this.roomDefender?.setAnalyst(this.roomAnalyst)
             this.roomBuilder?.setAnalyst(this.roomAnalyst)
             this.roomStats?.setAnalyst(this.roomAnalyst)
+
+            this.spawner = new Spawner(this.name, this.bus.getBus(SPAWNER_BUS_NAME), this.roomAnalyst)
         }
     }
 
@@ -128,11 +131,11 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
         this.doLevel1()
 
-        this.taskManager.runLast(() => this.spawner.run())
+        this.taskManager.runLast(() => this.spawner?.run())
     }
 
     doLevel1() {
-        if(!this.roomAnalyst || !this.roomStats) {
+        if(!this.roomAnalyst || !this.roomStats || !this.spawner) {
             return
         }
 
@@ -140,13 +143,15 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
             this.doLevel0()
         }
 
-        this.manageHaulers(1)
+        this.manageHaulers(1, false)
         this.manageMiners(1)
-        this.manageHaulers(2)
+        this.manageHaulers(2, false)
         this.manageMiners(2)
         this.manageBuilders(1)
         this.manageGeneric(1)
-        this.manageHaulers(3)
+        this.manageHaulers(3, false)
+
+        this.manageRemoteActors()
 
         if(this.roomStats.getAverageEnergyInStorage() > 5000 && this.roomStats.getTicksSinceLastSpawn(CREEP_ROLE_GENERIC) > 250) {
             this.manageGeneric(5)
@@ -154,13 +159,13 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     }
 
     doLevel0() {
-        if(!this.roomAnalyst || !this.needGenerator) {
+        if(!this.roomAnalyst || !this.needGenerator || !this.spawner) {
             return
         }
 
         const baseCreeps = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_GENERIC)
 
-        if(baseCreeps.length < 1) {
+        if(baseCreeps.length < 2) {
             this.spawner.enqueue(new GenericCreepTemplate(this, true));
         }
 
@@ -200,53 +205,92 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         return this.room.energyCapacityAvailable
     }
 
-    private manageHaulers(maxHaulers: number) {
-        if(!this.roomAnalyst || !this.needGenerator) {
+    private manageRemoteActors() {
+        const remoteRooms = this.remoteRooms.length
+
+        this.manageReservers(remoteRooms)
+
+        const totalMiners = this.remoteRooms
+            .map(room => room.getRoomAnalyst()?.getMiningSites().length || 0)
+            .reduce((a, b) => a + b, 0)
+
+        this.manageMiners(totalMiners, true)
+
+        const buildPoints = this.remoteRooms.map(
+            room => room.getRoomAnalyst()?.getConstructionSites()
+                .map(site => site.progressTotal - site.progress).reduce((a, b) => a+b, 0) || 0
+        ).reduce((a, b) => a + b, 0)
+
+        if(buildPoints > 0) {
+            this.manageRemoteBuilders(1, true)
+        }
+
+        this.manageHaulers(3, true)
+    }
+
+    private manageHaulers(maxHaulers: number, remote: boolean) {
+        if(!this.needGenerator || !this.spawner) {
             return
         }
 
-        const haulers = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_HAULER);
+        const haulers = this.filterCreeps(CREEP_ROLE_HAULER, remote)
 
         if(haulers.length < maxHaulers) {
-            this.spawner.enqueue(new HaulerCreepTemplate(this));
+            this.spawner.enqueue(new HaulerCreepTemplate(this, remote));
         }
 
-        this.needGenerator.assignTasks(haulers)
+        this.needGenerator.assignTasks(haulers, remote)
     }
 
-    private manageMiners(maxMiners: number) {
-        if(!this.roomAnalyst || !this.needGenerator) {
+    private manageMiners(maxMiners: number, remote = false) {
+        if(!this.roomAnalyst || !this.needGenerator || !this.spawner) {
             return
         }
 
-        const miners = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_MINER);
+        let miners = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_MINER);
+
+        miners = miners.filter(creep => creep.memory.remote === remote)
 
         if(miners.length < maxMiners) {
-            this.spawner.enqueue(new MinerCreepTemplate(this));
+            this.spawner.enqueue(new MinerCreepTemplate(this, remote));
         }
 
-        this.needGenerator.assignTasks(miners)
+        this.needGenerator.assignTasks(miners, remote)
     }
 
-    private manageBuilders(maxBuilders: number) {
+    private manageBuilders(maxBuilders: number, remote = false) {
         const sites = this.roomAnalyst?.getConstructionSites() || []
         const toRepair = this.roomAnalyst?.getToRepair() || []
 
-        if((sites.length === 0 && toRepair.length === 0) || !this.needGenerator) {
+        if((sites.length === 0 && toRepair.length === 0) || !this.needGenerator || !this.spawner) {
             return
         }
 
-        const builders = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_BUILDER)
+        let builders = this.filterCreeps(CREEP_ROLE_BUILDER, remote)
 
         if(builders.length < maxBuilders) {
-            this.spawner.enqueue(new BuilderCreepTemplate(this))
+            this.spawner.enqueue(new BuilderCreepTemplate(this, remote))
         }
 
-        this.needGenerator.assignTasks(builders)
+        this.needGenerator.assignTasks(builders, remote)
+    }
+
+    private manageRemoteBuilders(maxBuilders: number, remote = false) {
+        if(!this.needGenerator || !this.spawner) {
+            return
+        }
+
+        let builders = this.filterCreeps(CREEP_ROLE_BUILDER, remote)
+
+        if(builders.length < maxBuilders) {
+            this.spawner.enqueue(new BuilderCreepTemplate(this, remote))
+        }
+
+        this.needGenerator.assignTasks(builders, remote)
     }
 
     private manageGeneric(maxActors: number) {
-        if(!this.needGenerator) {
+        if(!this.needGenerator || !this.spawner) {
             return
         }
 
@@ -257,6 +301,33 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         }
 
         this.needGenerator.assignTasks(actors)
+    }
+
+    private manageReservers(maximum: number) {
+        if(!this.roomAnalyst || !this.needGenerator || !this.spawner) {
+            return
+        }
+
+        const creeps = this.filterCreeps(CREEP_ROLE_RESERVE, true)
+
+        if(creeps.length < maximum) {
+            this.spawner.enqueue(new ReserveCreepTemplate(this.name));
+        }
+
+        this.needGenerator.assignTasks(creeps, true)
+    }
+
+    filterCreeps(role: CreepRole, remote: boolean) {
+        let result = this.creeps.filter(creep => creep.memory.role === role)
+
+        if(remote) {
+            result = result.filter(creep => creep.memory.remote)
+        }
+        else {
+            result = result.filter(creep => !creep.memory.remote)
+        }
+
+        return result
     }
 
     get temporaryStoragePosition() {
@@ -273,6 +344,10 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     getSpawner() {
         return this.spawner
+    }
+
+    getNeedGenerator() {
+        return this.needGenerator
     }
 
     getRemoteRoom(roomName: string) {

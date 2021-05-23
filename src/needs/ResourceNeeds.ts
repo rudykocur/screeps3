@@ -11,7 +11,9 @@ export class ResourcePickupProvider implements NeedsProvider {
     constructor(
         private scheduler: IScheduler,
         private room: IRoomManager,
+        private storageRoom: IRoomManager,
         protected analyst: RoomAnalyst,
+        private remote: boolean,
     ) {}
 
     generate(): Need[] {
@@ -30,10 +32,12 @@ export class ResourcePickupProvider implements NeedsProvider {
                 return new ResourcePickupNeed(
                     this.scheduler,
                     this.room,
+                    this.storageRoom,
                     {
                         amount: resource.amount,
                         resource: resource,
-                        roles: this.roles
+                        roles: this.roles,
+                        remote: this.remote
                     }
                 )
             })
@@ -59,19 +63,23 @@ export class ResourcePickupNeed implements ResourceTransferNeed {
 
     public amount: number
     public resource: Resource
+    public remote: boolean
 
     public weight: number = 0.8
 
     constructor(
         private scheduler: IScheduler,
         private room: IRoomManager,
-        {amount, resource, roles}: {
+        private storageRoom: IRoomManager,
+        {amount, resource, roles, remote}: {
             amount: number,
             resource: Resource,
-            roles?: CreepRole[]
+            roles?: CreepRole[],
+            remote: boolean,
         }) {
             this.amount = amount
             this.resource = resource
+            this.remote = remote
 
             if(roles) {
                 this.roles = roles
@@ -81,7 +89,7 @@ export class ResourcePickupNeed implements ResourceTransferNeed {
     generate(actor: Creep) {
         const parentTask = this.scheduler.scheduleBackgroundTask(DepositEnergy, {
             actor: actor,
-            room: this.room,
+            room: this.storageRoom,
         })
 
         this.scheduler.scheduleChildTask(parentTask, PickupResourceTask, {

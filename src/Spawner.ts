@@ -1,7 +1,9 @@
-import { SpawnerChannel, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
+import { IEventBus } from "bus/EventBus";
+import { SpawnerChannel, SpawnerEvents, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
 import { counter } from "GlobalCounter";
 import { Logger } from "Logger";
 import { CreepSpawnTemplate } from "spawner/CreepSpawnTemplate";
+import { RoomAnalyst } from "tasks/RoomAnalyst";
 import { RoomManager } from "tasks/RoomManager";
 
 interface SpawnQueueEntry {
@@ -14,20 +16,26 @@ export class Spawner {
 
     private logger = new Logger('Spawner')
 
+    private spawners: StructureSpawn[]
+
     constructor(
-        private structures: StructureSpawn[],
         private roomName: string,
-        private room: RoomManager,
-    ) {}
+        private eventBus: IEventBus<SpawnerEvents>,
+        private analyst: RoomAnalyst,
+    ) {
+        this.spawners = this.analyst.getSpawns()
+    }
 
     canSpawn(): boolean {
-        return this.structures.find(s => s.spawning === null) != undefined;
+        return this.spawners.find(s => s.spawning === null) != undefined;
     }
 
     run() {
-        const freeSpawners = this.structures.filter(s => s.spawning === null);
+        const freeSpawners = this.spawners.filter(s => s.spawning === null);
 
         this.logger.debug(this, `Running spawning. Spawners=${freeSpawners.length} queue=${this.spawnQueue.length}`)
+
+        const extensions = this.analyst.getExtensionClusters().map(cluster => cluster.extensions).reduce((a, b) => a.concat(b))
 
         while(freeSpawners.length > 0) {
             if(this.spawnQueue.length === 0) {
@@ -52,7 +60,7 @@ export class Spawner {
                     this.logger.important(this, 'spawned creep', creepName)
                     this.logger.debug(`Creep spawning ${JSON.stringify(freeSpawner.spawning)}`)
 
-                    this.room.getEventBus().getBus(SPAWNER_BUS_NAME).dispatch(SpawnerChannel.CREEP_CREATED, {
+                    this.eventBus.dispatch(SpawnerChannel.CREEP_CREATED, {
                         spawnId: spawnEntry.spawnId,
                         roomName: this.roomName,
                         role: memory.role,
