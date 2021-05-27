@@ -49,6 +49,15 @@ export class MoveTask extends PersistentTask<MoveTaskMemory, MoveTaskArgs> {
                     fill: 'yellow'
                 }
             });
+
+            if(this.actor.getActiveBodyparts(WORK) > 0 && this.actor.store.getUsedCapacity(RESOURCE_ENERGY) > 0) {
+                const repairable = this.actor.pos.findInRange(FIND_STRUCTURES, 3, {
+                    filter: obj => obj.hits < obj.hitsMax
+                })
+                if(repairable.length > 0) {
+                    this.actor.repair(repairable[0])
+                }
+            }
         }
         else {
             return RunResult.DONE;

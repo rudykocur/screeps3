@@ -44,7 +44,7 @@ export class ReserveRoom extends PersistentTask<ReserveRoomMemory, ReserveRoomAr
         }
     }
     doRun(): RunResultType {
-        if(!this.manager || !this.actor || !this.room) {
+        if(!this.manager || !this.actor) {
             return RunResult.DONE
         }
 

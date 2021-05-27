@@ -35,7 +35,8 @@ export class Spawner {
 
         this.logger.debug(this, `Running spawning. Spawners=${freeSpawners.length} queue=${this.spawnQueue.length}`)
 
-        const extensions = this.analyst.getExtensionClusters().map(cluster => cluster.extensions).reduce((a, b) => a.concat(b))
+        let structures: (StructureSpawn|StructureExtension)[] = this.analyst.getExtensionClusters().map(cluster => cluster.extensions).reduce((a, b) => a.concat(b))
+        structures = structures.concat(this.spawners)
 
         while(freeSpawners.length > 0) {
             if(this.spawnQueue.length === 0) {
@@ -53,7 +54,8 @@ export class Spawner {
                 const creepName = `${this.roomName}-${freeSpawner.name}-${memory.role}-${Game.time}`;
 
                 const result = freeSpawner.spawnCreep(template.getBodyParts(), creepName, {
-                    memory: template.getMemory()
+                    memory: template.getMemory(),
+                    energyStructures: structures
                 })
 
                 if(result === OK) {

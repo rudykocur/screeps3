@@ -244,7 +244,7 @@ export class RemoteRoomNeedGenerator extends NeedGeneratorBase<RemoteNeedGenerat
         if(this.room && this.analyst && this.parentScheduler && this.remoteRoom && this.parentAnalyst && this.parentRoom) {
             this.providers.push(
                 new ResourcePickupProvider(this.parentScheduler, this.room, this.parentRoom, this.parentAnalyst, true),
-                new EmptyContainerNeedProvider(this, this.room, this.parentRoom, this.analyst, this.parentAnalyst, true),
+                new EmptyContainerNeedProvider(this.parentScheduler, this.room, this.parentRoom, this.analyst, this.parentAnalyst, true),
                 new RemoteBuildNeedProvider(this.parentScheduler, this.room, this.analyst, true),
                 new MineNeedsProvider(this.parentScheduler, this.analyst, true),
                 new ReserveNeedProvider(this.parentScheduler, this.remoteRoom)

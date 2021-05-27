@@ -32,7 +32,11 @@ export class MinerCreepTemplate implements CreepSpawnTemplate {
     constructor(private room: IOwnedRoomManager, private remote = false) {}
 
     getBodyParts(): BodyPartConstant[] {
-        return build([WORK, WORK, MOVE], Math.min(this.room.getMaxSpawnPower(), this.maxBudget));
+        const budget = Math.min(this.room.getMaxSpawnPower(), this.maxBudget)
+        if(this.remote) {
+            return build([WORK, WORK, MOVE], budget, [CARRY]);
+        }
+        return build([WORK, WORK, MOVE], budget);
     }
 
     getMemory(): CreepMemory {
@@ -64,6 +68,9 @@ export class HaulerCreepTemplate implements CreepSpawnTemplate {
     constructor(private room: IOwnedRoomManager, private remote = false) {}
 
     getBodyParts(): BodyPartConstant[] {
+        if(this.remote) {
+            return build([CARRY, MOVE], this.room.getMaxSpawnPower(), [WORK, MOVE]);
+        }
         return build([CARRY, MOVE], this.room.getMaxSpawnPower());
     }
 

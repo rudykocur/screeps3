@@ -124,6 +124,15 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
         }) || []
     }
 
+    getNeedsReserver() {
+        const reservation = this.room?.controller?.reservation
+        if(reservation === undefined) {
+            return true
+        }
+
+        return reservation.ticksToEnd < 4000
+    }
+
     get name() {
         return this.memory.roomName
     }

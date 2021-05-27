@@ -7,6 +7,7 @@ import { PersistentTask } from "../PersistentTask";
 interface MinerCreepMemory {
     actorId: Id<Creep>
     sourceId: Id<Source>,
+    containerId?: Id<StructureContainer> | null
     containerPos?: string,
     mining?: boolean
 }
@@ -22,6 +23,7 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
     private actor?: Creep | null
     private source?: Source | null
     private containerPos?: RoomPosition | null
+    private container?: StructureContainer | null
 
     private logger = new Logger('MinerCreep')
 
@@ -30,6 +32,7 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
             actorId: args.actor.id,
             sourceId: args.source.id,
             containerPos: args.container ? packPos(args.container.pos) : undefined,
+            containerId: args.container?.id,
             mining: false,
         }
     }
@@ -37,6 +40,7 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
     doInit(): void {
         this.actor = Game.getObjectById(this.memory.actorId)
         this.containerPos = this.memory.containerPos ? unpackPos(this.memory.containerPos) : null
+        this.container = this.memory.containerId ? Game.getObjectById(this.memory.containerId) : null
 
         const source = Game.getObjectById(this.memory.sourceId)
         if(source) {
@@ -61,7 +65,12 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
         }
 
         if(this.memory.mining) {
-            this.actor.harvest(this.source)
+            if(this.container && this.actor.getActiveBodyparts(CARRY) > 0 && this.actor.store.getUsedCapacity(RESOURCE_ENERGY) && this.container.hits < this.container.hitsMax) {
+                this.actor.repair(this.container)
+            }
+            else {
+                this.actor.harvest(this.source)
+            }
         }
         else {
             if(this.containerPos) {

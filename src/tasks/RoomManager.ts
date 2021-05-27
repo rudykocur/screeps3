@@ -153,7 +153,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
         this.manageRemoteActors()
 
-        if(this.roomStats.getAverageEnergyInStorage() > 5000 && this.roomStats.getTicksSinceLastSpawn(CREEP_ROLE_GENERIC) > 250) {
+        if(this.roomStats.getAverageEnergyInStorage() > 50000 && this.roomStats.getTicksSinceLastSpawn(CREEP_ROLE_GENERIC) > 250) {
             this.manageGeneric(5)
         }
     }
@@ -206,7 +206,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     }
 
     private manageRemoteActors() {
-        const remoteRooms = this.remoteRooms.length
+        const remoteRooms = this.remoteRooms.filter(room => room.getNeedsReserver()).length
 
         this.manageReservers(remoteRooms)
 
@@ -223,9 +223,11 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
         if(buildPoints > 0) {
             this.manageRemoteBuilders(1, true)
+            this.manageHaulers(1, true)
         }
-
+        else {
         this.manageHaulers(3, true)
+    }
     }
 
     private manageHaulers(maxHaulers: number, remote: boolean) {
@@ -260,9 +262,8 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     private manageBuilders(maxBuilders: number, remote = false) {
         const sites = this.roomAnalyst?.getConstructionSites() || []
-        const toRepair = this.roomAnalyst?.getToRepair() || []
 
-        if((sites.length === 0 && toRepair.length === 0) || !this.needGenerator || !this.spawner) {
+        if(sites.length === 0 || !this.needGenerator || !this.spawner) {
             return
         }
 

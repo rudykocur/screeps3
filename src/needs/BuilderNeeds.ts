@@ -1,4 +1,4 @@
-import { CreepRole, CREEP_ROLE_BUILDER } from "../constants"
+import { CreepRole, CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC } from "../constants"
 import { BuildTask } from "tasks/BuildTask"
 import { WithdrawEnergy } from "tasks/WithdrawEnergy"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
@@ -186,6 +186,7 @@ export class BuildSiteNeed extends DoActionWithEnergyNeed {
 export class RepairObjectNeed extends DoActionWithEnergyNeed {
 
     public target: Structure
+    roles: CreepRole[] = [CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC]
 
     constructor(
         scheduler: IScheduler,
