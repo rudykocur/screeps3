@@ -67,14 +67,18 @@ export abstract class NeedGeneratorBase<M extends TaskMemory, IA extends TaskIni
 
         const tasks = this.getChildTasks()
 
-        const jobless = actors.filter(creep =>
-            tasks.find(job => {
+        const jobless = actors.filter(creep => {
+            if(creep.spawning) {
+                return false
+            }
+
+            return tasks.find(job => {
                 if(!('getActorId' in job)) {
                     this.logger.error(`Task ${job} does not have actorId!!!`)
                 }
                 return 'getActorId' in job && job.getActorId() === creep.id
             }) === undefined
-        )
+        })
 
         if(jobless.length === 0) {
             this.logger.debug(this, `All actors busy: role=${role} remote=${remote} actors=${actors}`)

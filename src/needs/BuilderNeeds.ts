@@ -151,6 +151,8 @@ export abstract class DoActionWithEnergyNeed implements Need {
 
 export class BuildSiteNeed extends DoActionWithEnergyNeed {
 
+    roles: CreepRole[] = [CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC]
+
     public site: ConstructionSite
     public remote: boolean
 

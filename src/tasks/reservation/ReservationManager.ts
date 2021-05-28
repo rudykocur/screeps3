@@ -40,7 +40,7 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
                 const targetId = handler.getTargetId()
 
                 if(!targetId) {
-                    this.logger.debug(this, 'WARNING! No target for', handlerData.type, '::', handlerData.targetId)
+                    this.logger.debug(this, 'WARNING! No target for', handlerData.type, '::', handlerData.targetId, '::', JSON.stringify(handlerData.data))
                     this.memory.handlers = this.memory.handlers.filter(handler => handler.targetId !== handlerData.targetId)
                     return
                 }

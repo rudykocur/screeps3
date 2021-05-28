@@ -226,8 +226,8 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
             this.manageHaulers(1, true)
         }
         else {
-        this.manageHaulers(3, true)
-    }
+            this.manageHaulers(3, true)
+        }
     }
 
     private manageHaulers(maxHaulers: number, remote: boolean) {

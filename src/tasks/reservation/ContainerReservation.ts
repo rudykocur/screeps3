@@ -8,6 +8,7 @@ interface ContainerReservationChunk extends ReservationChunk {
 
 interface ContainerReservationMemory extends ReservationMemory {
     containerId: Id<StructureWithGeneralStorage>
+    name?: string,
     chunks: ContainerReservationChunk[]
 }
 
@@ -22,6 +23,7 @@ export class ContainerReservation implements ReservableHandler {
     initMemory(target: StructureWithGeneralStorage): ContainerReservationMemory {
         return {
             containerId: target.id,
+            name: target.toString(),
             chunks: []
         }
     }
