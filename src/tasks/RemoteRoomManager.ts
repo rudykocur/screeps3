@@ -13,6 +13,8 @@ import { SpawnPriority } from "Spawner";
 import { EventBusMaster, createEventBus } from "bus/EventBus";
 import { ROOM_EVENTS_BUS_NAME, RoomEvents } from "bus/RoomActionsEvents";
 import { RemoteRoomStats } from "./RoomStats";
+import { ThreatEvents, THREAT_EVENTS_BUS_NAME } from "bus/ThreatEvents";
+import { RoomThreatManager } from "./RoomThreatManager";
 
 interface RemoteRoomManagerMemory {
     roomName: string
@@ -38,6 +40,7 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
 
     private analyst: RoomAnalyst | null
     private stats: RemoteRoomStats | null
+    private threatManager: RoomThreatManager | null
     private needGenerator: RemoteRoomNeedGenerator | null
 
     private scout?: Creep | null
@@ -62,10 +65,12 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
 
         this.analyst = this.findTask(RoomAnalyst)
         this.stats = this.findTask(RemoteRoomStats)
+        this.threatManager = this.findTask(RoomThreatManager)
         this.needGenerator = this.findTask(RemoteRoomNeedGenerator)
 
         this.bus = new EventBusMaster({
             [ROOM_EVENTS_BUS_NAME]: createEventBus<RoomEvents>(),
+            [THREAT_EVENTS_BUS_NAME]: createEventBus<ThreatEvents>(),
         })
     }
 
@@ -117,6 +122,11 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
             }
             if(!this.stats) {
                 this.stats = this.scheduleBackgroundTask(RemoteRoomStats, {
+                    room: this
+                })
+            }
+            if(!this.threatManager) {
+                this.threatManager = this.scheduleBackgroundTask(RoomThreatManager, {
                     room: this
                 })
             }
@@ -191,6 +201,10 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
 
     getEventBus() {
         return this.bus
+    }
+
+    getThreatManager() {
+        return this.threatManager
     }
 
     get name() {

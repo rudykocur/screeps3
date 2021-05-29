@@ -28,7 +28,7 @@ export abstract class RoomStatsBase<M extends TaskMemory, IA extends TaskInitArg
 
 @PersistentTask.register
 export class RoomStats extends RoomStatsBase<RoomStatsMemory, RoomStatsArgs> {
-    private analyst?: RoomAnalyst
+    private analyst?: RoomAnalyst | null
     private room?: IOwnedRoomManager | null
 
     initMemory(args: RoomStatsArgs): RoomStatsMemory {
@@ -48,6 +48,10 @@ export class RoomStats extends RoomStatsBase<RoomStatsMemory, RoomStatsArgs> {
                 new EnergyHarvestedStatProvider(this.memory, this.room),
             ]
         }
+    }
+
+    doLateInit() {
+        this.analyst = this.room?.getRoomAnalyst()
     }
 
     doRun(): RunResultType {
@@ -76,10 +80,6 @@ export class RoomStats extends RoomStatsBase<RoomStatsMemory, RoomStatsArgs> {
 
     getHarvestedEnergy() {
         return this.getProvider(EnergyHarvestedStatProvider).getHarvestedAmount()
-    }
-
-    setAnalyst(anaylst: RoomAnalyst) {
-        this.analyst = anaylst
     }
 
     toString() {

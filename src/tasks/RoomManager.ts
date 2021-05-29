@@ -12,8 +12,10 @@ import { createEventBus, EventBusMaster } from "bus/EventBus";
 import { SpawnerEvents, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
 import { RemoteRoomManager } from "./RemoteRoomManager";
 import { Logger } from "Logger";
-import { IOwnedRoomManager, OwnerRoomBus } from "interfaces";
+import { IOwnedRoomManager, OwnedRoomBus } from "interfaces";
 import { ROOM_EVENTS_BUS_NAME, RoomEvents } from "bus/RoomActionsEvents";
+import { ThreatEvents, THREAT_EVENTS_BUS_NAME } from "bus/ThreatEvents";
+import { RoomThreatManager } from "./RoomThreatManager";
 
 interface RoomManagerMemory {
     roomName: string
@@ -35,10 +37,11 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     private roomBuilder: RoomBuilder | null
     private roomDefender: RoomDefender | null
     private roomStats: RoomStats | null
+    private roomThreatManager: RoomThreatManager | null
     private needGenerator: NeedGenerator | null
     private remoteRooms: RemoteRoomManager[]
 
-    private bus: OwnerRoomBus
+    private bus: OwnedRoomBus
 
     private logger = new Logger('RoomManager')
 
@@ -54,6 +57,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         this.bus = new EventBusMaster({
             [SPAWNER_BUS_NAME]: createEventBus<SpawnerEvents>(),
             [ROOM_EVENTS_BUS_NAME]: createEventBus<RoomEvents>(),
+            [THREAT_EVENTS_BUS_NAME]: createEventBus<ThreatEvents>(),
         })
     }
 
@@ -72,6 +76,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         this.roomAnalyst = this.findTask(RoomAnalyst)
         this.roomBuilder = this.findTask(RoomBuilder)
         this.roomDefender = this.findTask(RoomDefender)
+        this.roomThreatManager = this.findTask(RoomThreatManager)
         this.roomStats = this.findTask(RoomStats)
         this.needGenerator = this.findTask(NeedGenerator)
         this.remoteRooms = this.findTasks(RemoteRoomManager)
@@ -84,10 +89,6 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         })
 
         if(this.roomAnalyst) {
-            this.roomDefender?.setAnalyst(this.roomAnalyst)
-            this.roomBuilder?.setAnalyst(this.roomAnalyst)
-            this.roomStats?.setAnalyst(this.roomAnalyst)
-
             this.spawner = new Spawner(this.name, this.bus.getBus(SPAWNER_BUS_NAME), this.roomAnalyst)
         }
     }
@@ -109,6 +110,11 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         }
         if(!this.roomDefender) {
             this.roomDefender = this.scheduleBackgroundTask(RoomDefender, {
+                room: this
+            })
+        }
+        if(!this.roomThreatManager) {
+            this.roomThreatManager = this.scheduleBackgroundTask(RoomThreatManager, {
                 room: this
             })
         }
@@ -354,6 +360,10 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
     getRemoteRoom(roomName: string) {
         return this.remoteRooms.find(room => room.name === roomName)
+    }
+
+    getThreatManager() {
+        return this.roomThreatManager
     }
 
     get name() {

@@ -18,7 +18,7 @@ const MAX_ROAD_CONSTRUCTION_SITES = 5
 
 @PersistentTask.register
 export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderArgs> {
-    private analyst?: RoomAnalyst
+    private analyst?: RoomAnalyst | null
     private room: Room
 
     private logger = new Logger('RoomBuilder')
@@ -30,6 +30,11 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
     }
     doInit(): void {
         this.room = Game.rooms[this.memory.roomName]
+    }
+
+    doLateInit() {
+        const room = Game.manager.getRoomManager(this.memory.roomName)
+        this.analyst = room?.getRoomAnalyst()
     }
 
     doRun(): RunResultType {
@@ -175,10 +180,6 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
         if(builder.constructedRoads > 0) {
             analyst.invalidateConstructionSites()
         }
-    }
-
-    setAnalyst(anaylst: RoomAnalyst) {
-        this.analyst = anaylst
     }
 
     toString() {
