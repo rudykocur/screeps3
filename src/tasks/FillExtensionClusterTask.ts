@@ -31,7 +31,7 @@ export class FillExtensionClusterTask extends PersistentTask<FillExtensionCluste
 
     doInit(): void {
         this.actor = Game.getObjectById(this.memory.actorId);
-        const analyst = Game.manager.getRoomManager(this.memory.roomName)?.getRoomAnalyst()
+        const analyst = Game.manager.getOwnedRoomManager(this.memory.roomName)?.getRoomAnalyst()
         this.cluster = analyst?.getExtensionClusters().find(cluster => cluster.id === this.memory.clusterId)
     }
 

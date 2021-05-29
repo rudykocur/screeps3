@@ -1,3 +1,5 @@
+import { IEventBus } from "bus/EventBus";
+import { RoomEvents, RoomEventsChannel, ROOM_EVENTS_BUS_NAME } from "bus/RoomActionsEvents";
 import { Logger } from "Logger";
 import { packPos, unpackPos } from "utils/packrat";
 import { RunResult, RunResultType } from "../AbstractTask";
@@ -24,6 +26,7 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
     private source?: Source | null
     private containerPos?: RoomPosition | null
     private container?: StructureContainer | null
+    private bus?: IEventBus<RoomEvents>
 
     private logger = new Logger('MinerCreep')
 
@@ -45,6 +48,8 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
         const source = Game.getObjectById(this.memory.sourceId)
         if(source) {
             this.source = source
+
+            this.bus = Game.manager.getRoomManager(this.source.pos.roomName)?.getEventBus().getBus(ROOM_EVENTS_BUS_NAME)
         }
     }
 
@@ -69,7 +74,17 @@ export class MinerCreep extends PersistentTask<MinerCreepMemory, MinerCreepArgs>
                 this.actor.repair(this.container)
             }
             else {
-                this.actor.harvest(this.source)
+                const result = this.actor.harvest(this.source)
+
+                if(result === OK && this.bus) {
+                    const workParts = this.actor.getActiveBodyparts(WORK)
+
+                    this.bus.dispatch(RoomEventsChannel.SOURCE_HARVESTED, {
+                        actor: this.actor,
+                        roomName: this.actor.pos.roomName,
+                        amount: workParts * HARVEST_POWER
+                    })
+                }
             }
         }
         else {

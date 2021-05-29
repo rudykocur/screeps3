@@ -30,7 +30,7 @@ export class DepositEnergy extends PersistentTask<DepositEnergyMemory, DepositEn
 
     doInit(): void {
         this.actor = Game.getObjectById(this.memory.actorId);
-        const room = Game.manager.getRoomManager(this.memory.roomName);
+        const room = Game.manager.getOwnedRoomManager(this.memory.roomName);
 
         if(room) {
             this.room = room;

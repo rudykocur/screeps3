@@ -9,6 +9,7 @@ import { Logger } from "Logger";
 
 interface RoomAnalystMemory {
     roomName: string,
+    safeZonePosition?: string,
     miningSites?: MiningSiteMemory[]
     safeSources?: Id<Source>[]
     constructionSites?: Id<ConstructionSite>[]
@@ -138,6 +139,7 @@ export class RoomStorageWrapper {
 export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystArgs> {
 
     private room: Room
+    private safeZone?: RoomPosition | null
     private miningSites: MiningSite[]
     private safeSources: Source[]
     private constructionSites: ConstructionSite[]
@@ -162,6 +164,8 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     doPreInit(): void {
         this.room = Game.rooms[this.memory.roomName]
+
+        this.safeZone = this.memory.safeZonePosition ? unpackPos(this.memory.safeZonePosition) : null
 
         this.miningSites = []
         for(const site of (this.memory.miningSites || [])) {
@@ -246,6 +250,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
         this.logger.important(this, 'Running analysis ...')
 
+        this.analyzeSafeZone()
         this.analyzeStorage()
         this.analyzeSources()
         this.analyzeMiningSites()
@@ -260,6 +265,15 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
         this.analyzeExpansionDirections()
 
         this.sleep(15)
+    }
+
+    private analyzeSafeZone() {
+        const flag = Object.values(Game.flags).find(flag => flag.pos.roomName === this.room.name && flagSelectors.isSafeZoneFlag(flag))
+
+        if(flag) {
+            this.safeZone = flag.pos
+            this.memory.safeZonePosition = packPos(this.safeZone)
+        }
     }
 
     private analyzeStorage() {
@@ -616,6 +630,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     getRuins() {
         return this.ruins
+    }
+
+    getSafeZonePosition() {
+        return this.safeZone
     }
 
     getDroppedResources() {

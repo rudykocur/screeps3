@@ -23,5 +23,9 @@ export function isBuildable(pos: RoomPosition): boolean {
 export const flagSelectors = {
     isExpansionFlag(flag: Flag) {
         return flag.color === COLOR_YELLOW && flag.secondaryColor === COLOR_BLUE
+    },
+
+    isSafeZoneFlag(flag: Flag) {
+        return flag.color === COLOR_GREEN && flag.secondaryColor == COLOR_GREEN
     }
 }

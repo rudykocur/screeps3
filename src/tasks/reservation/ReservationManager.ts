@@ -10,7 +10,15 @@ import { ExtensionCluster } from "tasks/RoomAnalyst";
 import { ExtensionClusterReservation } from "./ExtensionClusterReservation";
 import { Logger } from "Logger";
 
-type ReserveClasses = StructureSpawn | StructureWithGeneralStorage | Resource | ExtensionCluster | Tombstone | Ruin
+type ReserveClasses =
+    | StructureSpawn
+    | StructureWithGeneralStorage
+    | Resource
+    | ExtensionCluster
+    | Tombstone
+    | Ruin
+    | StructureExtension
+    | StructureTower
 
 @PersistentTask.register
 export class ReservationManager extends PersistentTask<ReservationManagerMemory, ReservationManagerArgs> implements IReservationManager {
@@ -96,6 +104,18 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
         }
 
         if(type instanceof Tombstone) {
+            return new ContainerReservation(this)
+        }
+
+        if(type instanceof StructureSpawn) {
+            return new ContainerReservation(this)
+        }
+
+        if(type instanceof StructureExtension) {
+            return new ContainerReservation(this)
+        }
+
+        if(type instanceof StructureTower) {
             return new ContainerReservation(this)
         }
 

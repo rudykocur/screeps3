@@ -68,6 +68,20 @@ export class TransferResourceTask extends PersistentTask<TransferResourceMemory,
         }
     }
 
+    reserveResouces(amount: number) {
+        if(!this.actor || (!this.structure && !this.container)) {
+            return
+        }
+
+        if(this.structure) {
+            Game.reservationManager.getHandler(this.structure)?.reserve(this, amount)
+        }
+
+        if(this.container) {
+            Game.reservationManager.getHandler(this.container)?.reserve(this, amount)
+        }
+    }
+
     getActorId() {
         return this.actor?.id
     }

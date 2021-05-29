@@ -37,7 +37,7 @@ export class ReserveRoom extends PersistentTask<ReserveRoomMemory, ReserveRoomAr
         this.room = Game.rooms[this.memory.roomName]
 
         if(this.memory.parentRoomName) {
-            const parentRoom = Game.manager.getRoomManager(this.memory.parentRoomName)
+            const parentRoom = Game.manager.getOwnedRoomManager(this.memory.parentRoomName)
             if(parentRoom) {
                 this.manager = parentRoom.getRemoteRoom(this.memory.roomName)
             }

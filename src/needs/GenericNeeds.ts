@@ -1,4 +1,4 @@
-import { CreepRole, CREEP_ROLE_GENERIC } from "../constants"
+import { CreepRole, CREEP_ROLE_BUILDER, CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER } from "../constants"
 import { UpgradeControllerTask } from "tasks/UpgradeControllerTask"
 import { WithdrawEnergy } from "tasks/WithdrawEnergy"
 import { RoomAnalyst } from "tasks/RoomAnalyst"
@@ -6,6 +6,8 @@ import { HarvestAndLoadTask } from "tasks/HarvestAndLoadTask"
 import { DepositEnergy } from "tasks/DepositEnergy"
 import { IRoomManager, IScheduler } from "interfaces"
 import { NeedsProvider, Need, LOWEST_PRIORITY, NeedPriority } from "./interfaces"
+import { WaitTask } from "tasks/WaitTask"
+import { MoveTask } from "tasks/MoveTask"
 
 export class GenericNeedsProvider implements NeedsProvider {
 
@@ -94,7 +96,7 @@ export class HarvestEnergyNeed implements Need {
 export class UpgradeControllerNeed implements Need {
     roles: CreepRole[] = [CREEP_ROLE_GENERIC]
     infinite = true
-    priority = NeedPriority.LAST
+    priority = NeedPriority.LOW
 
     constructor(
         private scheduler: IScheduler,
@@ -120,4 +122,57 @@ export class UpgradeControllerNeed implements Need {
     toString() {
         return `[UpgradeControllerNeed room=${this.room.name}]`
     }
+}
+
+export class RestAtSafeZoneNeedGenerator implements NeedsProvider {
+    constructor(
+        private scheduler: IScheduler,
+        private analyst: RoomAnalyst,
+        private remote: boolean
+    ) {}
+
+    generate(): Need[] {
+        const safeZone = this.analyst.getSafeZonePosition()
+
+        if(!safeZone) {
+            return []
+        }
+
+        return [
+            new RestAtSafeZoneNeed(this.scheduler, safeZone, this.remote)
+        ]
+    }
+
+    isActive(): boolean {
+        return true
+    }
+}
+
+export class RestAtSafeZoneNeed implements Need {
+    priority = NeedPriority.LAST
+    infinite: boolean = false
+    roles: CreepRole[] = [CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER, CREEP_ROLE_BUILDER]
+
+    constructor(
+        private scheduler: IScheduler,
+        private target: RoomPosition,
+        public remote: boolean
+    ) {}
+
+    generate(actor: Creep): void {
+        const parent = this.scheduler.scheduleBackgroundTask(WaitTask, {
+            actor: actor,
+            ticks: 10
+        })
+
+        this.scheduler.scheduleChildTask(parent, MoveTask, {
+            actor: actor,
+            target: this.target,
+            range: 2,
+        })
+    }
+    calculateCost(actor: Creep): number {
+        return 0
+    }
+
 }

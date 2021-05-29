@@ -11,8 +11,54 @@ interface SpawnQueueEntry {
     spawnId: string
 }
 
+export enum SpawnPriority {
+    LOW,
+    NORMAL,
+    HIGH,
+}
+
+class SpawnPriorityQueue {
+    private lowPriority: SpawnQueueEntry[] = []
+    private normalPriority: SpawnQueueEntry[] = []
+    private highPriority: SpawnQueueEntry[] = []
+
+    enqueue(entry: SpawnQueueEntry, priority: SpawnPriority) {
+        switch(priority) {
+            case SpawnPriority.HIGH:
+                this.highPriority.push(entry)
+                break
+            case SpawnPriority.NORMAL:
+                this.normalPriority.push(entry)
+                break
+            case SpawnPriority.LOW:
+                this.lowPriority.push(entry)
+                break
+        }
+    }
+
+    shift(): SpawnQueueEntry | undefined {
+        if(this.highPriority.length > 0) {
+            return this.highPriority.shift()
+        }
+
+        if(this.normalPriority.length > 0) {
+            return this.normalPriority.shift()
+        }
+
+        if(this.lowPriority.length > 0) {
+            return this.lowPriority.shift()
+        }
+
+        return
+    }
+
+    get length() {
+        return this.highPriority.length + this.normalPriority.length + this.lowPriority.length
+    }
+}
+
 export class Spawner {
-    private spawnQueue: SpawnQueueEntry[] = []
+    private spawnQueue: SpawnPriorityQueue = new SpawnPriorityQueue()
 
     private logger = new Logger('Spawner')
 
@@ -78,15 +124,15 @@ export class Spawner {
         }
     }
 
-    enqueue(template: CreepSpawnTemplate) {
+    enqueue(template: CreepSpawnTemplate, priority: SpawnPriority = SpawnPriority.NORMAL) {
         const id = counter.generate()
 
-        this.spawnQueue.push({
+        this.spawnQueue.enqueue({
             template: template,
             spawnId: id
-        })
+        }, priority)
 
-        this.logger.debug(this, 'added to queue', id, '::', template.getBodyParts())
+        this.logger.debug(this, `Creep added to [${priority}] queue body=${template.getBodyParts()} id=${id}`)
 
         return id
     }

@@ -1,4 +1,4 @@
-import { IOwnedRoomManager } from "interfaces";
+import { IOwnedRoomManager, IRoomManager } from "interfaces";
 import { build } from "utils/BodyBuilder"
 
 export interface CreepSpawnTemplate {
@@ -14,7 +14,10 @@ export class GenericCreepTemplate implements CreepSpawnTemplate {
             return [MOVE, MOVE, CARRY, WORK];
         }
 
-        return build([WORK, CARRY, MOVE], this.room.getMaxSpawnPower());
+        return build({
+            pattern: [WORK, CARRY, MOVE],
+            budget: this.room.getMaxSpawnPower()
+        });
     }
 
     getMemory(): CreepMemory {
@@ -34,9 +37,16 @@ export class MinerCreepTemplate implements CreepSpawnTemplate {
     getBodyParts(): BodyPartConstant[] {
         const budget = Math.min(this.room.getMaxSpawnPower(), this.maxBudget)
         if(this.remote) {
-            return build([WORK, WORK, MOVE], budget, [CARRY]);
+            return build({
+                pattern: [WORK, WORK, MOVE],
+                budget: budget,
+                prefix: [CARRY]
+            });
         }
-        return build([WORK, WORK, MOVE], budget);
+        return build({
+            pattern: [WORK, WORK, MOVE],
+            budget: budget
+        });
     }
 
     getMemory(): CreepMemory {
@@ -52,7 +62,10 @@ export class BuilderCreepTemplate implements CreepSpawnTemplate {
     constructor(private room: IOwnedRoomManager, private remote = false) {}
 
     getBodyParts(): BodyPartConstant[] {
-        return build([WORK, CARRY, MOVE], this.room.getMaxSpawnPower());
+        return build({
+            pattern: [WORK, CARRY, MOVE],
+            budget: this.room.getMaxSpawnPower()
+        });
     }
 
     getMemory(): CreepMemory {
@@ -69,9 +82,16 @@ export class HaulerCreepTemplate implements CreepSpawnTemplate {
 
     getBodyParts(): BodyPartConstant[] {
         if(this.remote) {
-            return build([CARRY, MOVE], this.room.getMaxSpawnPower(), [WORK, MOVE]);
+            return build({
+                pattern: [MOVE, CARRY],
+                budget: this.room.getMaxSpawnPower(),
+                prefix: [WORK, MOVE]
+            });
         }
-        return build([CARRY, MOVE], this.room.getMaxSpawnPower());
+        return build({
+            pattern: [MOVE, CARRY],
+            budget: this.room.getMaxSpawnPower(),
+        });
     }
 
     getMemory(): CreepMemory {
@@ -110,6 +130,27 @@ export class ReserveCreepTemplate implements CreepSpawnTemplate {
         return {
             room: this.roomName,
             role: "reserve",
+            remote: true
+        };
+    }
+}
+
+export class DefenderCreepTemplate implements CreepSpawnTemplate {
+    constructor(private room: IOwnedRoomManager, private targetRoomName: string) {}
+
+    getBodyParts(): BodyPartConstant[] {
+        return build({
+            pattern: [TOUGH, ATTACK, MOVE, MOVE],
+            budget: this.room.getMaxSpawnPower(),
+            prefix: [TOUGH, TOUGH, TOUGH, TOUGH],
+            suffix: [RANGED_ATTACK, MOVE, MOVE, MOVE, MOVE, MOVE]
+        });
+    }
+
+    getMemory(): CreepMemory {
+        return {
+            room: this.targetRoomName,
+            role: "defender",
             remote: true
         };
     }

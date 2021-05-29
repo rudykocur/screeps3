@@ -1,37 +1,35 @@
-import { CreepCreatedEvent, SpawnerChannel, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
 import { CreepRole } from "../constants";
-import { Logger } from "Logger";
 import { RunResultType } from "./AbstractTask";
 import { PersistentTask } from "./PersistentTask";
 import { RoomAnalyst } from "./RoomAnalyst";
-import { IOwnedRoomManager } from "interfaces";
+import { IOwnedRoomManager, IRoomManager } from "interfaces";
+import { TaskInitArgs, TaskMemory, Type } from "types";
+import { StatProvider } from "stats/interfaces";
+import { EnergyInStorageMemory, EnergyInStorageStatProvider } from "stats/providers/EnergyInStorageStatProvider";
+import { EnergyToPickupMemory, EnergyToPickupStatProvider } from "stats/providers/EnergyToPickupStatProvider";
+import { LastSpawnTimeMemory, LastSpawnTimeStatProvider } from "stats/providers/LastSpawnTimeStatProvider";
+import { EnergyHarvestedMemory, EnergyHarvestedStatProvider } from "stats/providers/EnergyHarvestedStatProvider";
 
-interface StatMemory {
-    partials: string
-    average: number
-}
-
-interface RoomStatsMemory {
+interface RoomStatsMemory extends EnergyToPickupMemory, EnergyInStorageMemory, LastSpawnTimeMemory, EnergyHarvestedMemory {
     roomName: string
-    energyToPickup?: StatMemory
-    energyInStorage?: StatMemory
-    lastSpawnTime?: {
-        [key: string ] : number
-    }
 }
 
 interface RoomStatsArgs {
     room: IOwnedRoomManager
 }
 
+export abstract class RoomStatsBase<M extends TaskMemory, IA extends TaskInitArgs> extends PersistentTask<M, IA> {
+    protected providers: StatProvider[] = []
+
+    getProvider<T extends StatProvider>(clazz: Type<T>): T {
+        return this.providers.find(provider => provider.constructor.name === clazz.name) as T
+    }
+}
+
 @PersistentTask.register
-export class RoomStats extends PersistentTask<RoomStatsMemory, RoomStatsArgs> {
+export class RoomStats extends RoomStatsBase<RoomStatsMemory, RoomStatsArgs> {
     private analyst?: RoomAnalyst
     private room?: IOwnedRoomManager | null
-    private energyToPickupStats: StatsAggregator
-    private energyInStorage: StatsAggregator
-
-    private logger = new Logger('RoomStats')
 
     initMemory(args: RoomStatsArgs): RoomStatsMemory {
         return {
@@ -40,83 +38,44 @@ export class RoomStats extends PersistentTask<RoomStatsMemory, RoomStatsArgs> {
     }
 
     doInit(): void {
-        this.room = Game.manager.getRoomManager(this.memory.roomName)
+        this.room = Game.manager.getOwnedRoomManager(this.memory.roomName)
 
-        this.room?.getEventBus()
-            .getBus(SPAWNER_BUS_NAME)
-            .subscribe(SpawnerChannel.CREEP_CREATED, this.handleSpawnEvent.bind(this))
-
-        if(!this.memory.energyToPickup) {
-            this.memory.energyToPickup = {
-                average: 0,
-                partials: ""
-            }
+        if(this.room) {
+            this.providers = [
+                new EnergyToPickupStatProvider(this.memory),
+                new EnergyInStorageStatProvider(this.memory),
+                new LastSpawnTimeStatProvider(this.memory, this.room),
+                new EnergyHarvestedStatProvider(this.memory, this.room),
+            ]
         }
-
-        if(!this.memory.energyInStorage) {
-            this.memory.energyInStorage = {
-                average: 0,
-                partials: ""
-            }
-        }
-
-        if(!this.memory.lastSpawnTime) {
-            this.memory.lastSpawnTime = {}
-        }
-
-        this.energyToPickupStats = new StatsAggregator('EnergyToPickup', this.memory.energyToPickup, 30)
-        this.energyInStorage = new StatsAggregator('EnergyInStorage', this.memory.energyInStorage, 30)
     }
 
     doRun(): RunResultType {
+        if(!this.analyst) {
+            return
+        }
 
-        this.energyToPickupStats.add(this.getEnergyToPickup())
-        this.energyInStorage.add(this.getEnergyInStorage())
+        for(const provider of this.providers) {
+            provider.run(this.analyst)
+        }
 
         this.sleep(20)
     }
 
-    handleSpawnEvent(event: CreepCreatedEvent) {
-        if(this.memory.lastSpawnTime) {
-            this.logger.important(this, "GOT DATA FOR SPAWN EVENT", event.roomName, '::', event.role)
-            this.memory.lastSpawnTime[event.role] = Game.time
-        }
-        else {
-            this.logger.warn('No memory for spawn event', event.roomName, '::', event.role)
-        }
-    }
-
-    private getEnergyToPickup() {
-        const energyInResources = this.analyst?.getDroppedResources()
-            .map(res => res.amount)
-            .reduce((a, b) => a + b, 0) || 0
-
-        const energyInContainers = this.analyst?.getMiningSites()
-            .filter(site => site.container)
-            .map(site => site.container?.store.getUsedCapacity(RESOURCE_ENERGY) || 0)
-            .reduce((a, b) => a + b, 0) || 0
-
-            return energyInResources + energyInContainers
-    }
-
-    private getEnergyInStorage() {
-        return this.analyst?.getStorage()?.getResourceAmount(RESOURCE_ENERGY) || 0
-    }
-
     getAverageEnergyToPickup() {
-        return this.energyToPickupStats.average
+        return this.getProvider(EnergyToPickupStatProvider).getAverage()
     }
 
     getAverageEnergyInStorage() {
-        return this.energyInStorage.average
+        return this.getProvider(EnergyInStorageStatProvider).getAverage()
     }
 
     getTicksSinceLastSpawn(role: CreepRole) {
-        if(this.memory.lastSpawnTime && this.memory.lastSpawnTime[role]) {
-            return Game.time - this.memory.lastSpawnTime[role]
-        }
+        return this.getProvider(LastSpawnTimeStatProvider).getTicksSinceLastSpawn(role)
+    }
 
-        return 0
+    getHarvestedEnergy() {
+        return this.getProvider(EnergyHarvestedStatProvider).getHarvestedAmount()
     }
 
     setAnalyst(anaylst: RoomAnalyst) {
@@ -128,29 +87,61 @@ export class RoomStats extends PersistentTask<RoomStatsMemory, RoomStatsArgs> {
     }
 }
 
-class StatsAggregator {
-    private logger = new Logger('StatsAggregator')
+interface RemoteRoomStatsMemory extends EnergyToPickupMemory, EnergyHarvestedMemory {
+    roomName: string
+}
 
-    constructor(
-        private name: string,
-        private memory: StatMemory,
-        private maxComponents: number
-    ) {}
+interface RemoteRoomStatsArgs {
+    room: IRoomManager
+}
 
-    get average() {
-        return this.memory.average
+@PersistentTask.register
+export class RemoteRoomStats extends RoomStatsBase<RemoteRoomStatsMemory, RemoteRoomStatsArgs> {
+    private analyst?: RoomAnalyst
+    private room?: IRoomManager | null
+
+    initMemory(args: RemoteRoomStatsArgs): RemoteRoomStatsMemory {
+        return {
+            roomName: args.room.name
+        }
     }
 
-    add(value: number) {
-        let parts = this.memory.partials ? this.memory.partials.split(',').map(part => parseInt(part)) : []
+    doInit(): void {
+        this.room = Game.manager.getRoomManager(this.memory.roomName)
 
-        parts.unshift(value)
-        parts = parts.slice(0, this.maxComponents)
+        if(this.room) {
+            this.providers = [
+                new EnergyToPickupStatProvider(this.memory),
+                new EnergyHarvestedStatProvider(this.memory, this.room),
+            ]
+        }
+    }
 
-        this.memory.average = Math.round(parts.reduce((a, b) => a + b, 0) / parts.length)
+    doRun(): RunResultType {
+        if(!this.analyst) {
+            return
+        }
 
-        this.memory.partials = parts.join(',')
+        for(const provider of this.providers) {
+            provider.run(this.analyst)
+        }
 
-        this.logger.debug(`Added to set [${this.name}] new value`, value, ', average', this.memory.average)
+        this.sleep(20)
+    }
+
+    getAverageEnergyToPickup() {
+        return this.getProvider(EnergyToPickupStatProvider).getAverage()
+    }
+
+    getHarvestedEnergy() {
+        return this.getProvider(EnergyHarvestedStatProvider).getHarvestedAmount()
+    }
+
+    setAnalyst(anaylst: RoomAnalyst) {
+        this.analyst = anaylst
+    }
+
+    toString() {
+        return `[RmoteRoomStats ${this.memory.roomName}]`
     }
 }

@@ -30,7 +30,7 @@ export class ExtensionClusterReservation implements ReservableHandler {
     }
 
     init(memory: ExtensionClusterReservationMemory): void {
-        const analyst = Game.manager.getRoomManager(memory.roomName)?.getRoomAnalyst()
+        const analyst = Game.manager.getOwnedRoomManager(memory.roomName)?.getRoomAnalyst()
         this.cluster = analyst?.getExtensionClusters().find(cluster => cluster.id === memory.clusterId)
         this.reservedChunks = memory.chunks
     }

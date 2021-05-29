@@ -5,7 +5,7 @@ import { BuildNeedProvider, RemoteBuildNeedProvider, RepairNeedsProvider } from 
 import { ResourcePickupAtCriticalProvider, ResourcePickupProvider } from "./ResourceNeeds";
 import { EmptyContainerAtCriticalNeedProvider, EmptyContainerNeedProvider, EmptyRuinNeedProvider, EmptyTombstoneNeedProvider } from "./EmptyContainersNeeds";
 import { MineNeedsProvider } from "./MineNeeds";
-import { GenericNeedsProvider, HarvestEnergyAtCriticalNeedsProvider } from "./GenericNeeds";
+import { GenericNeedsProvider, HarvestEnergyAtCriticalNeedsProvider, RestAtSafeZoneNeed, RestAtSafeZoneNeedGenerator } from "./GenericNeeds";
 import { EnergyRefillAtCriticalNeedProvider, EnergyRefillNeedsProvider, ExtensionClusterNeedsProvider, SpawnRefillAtCriticalNeedProvider, SpawnRefillNeedsProvider, TowerRefillNeedsProvider } from "./EnergyRefillNeeds";
 import { IOwnedRoomManager, IRemoteRoom, IRoomManager, IScheduler } from "interfaces";
 import { INeedGenerator, Need, NeedPriority, NeedsProvider } from "./interfaces";
@@ -188,7 +188,7 @@ export class NeedGenerator extends NeedGeneratorBase<NeedGeneratorMemory, NeedGe
     }
 
     doInit(): void {
-        this.room = Game.manager.getRoomManager(this.memory.roomName)
+        this.room = Game.manager.getOwnedRoomManager(this.memory.roomName)
         this.analyst = this.room?.getRoomAnalyst()
 
         this.initProviders()
@@ -213,7 +213,8 @@ export class NeedGenerator extends NeedGeneratorBase<NeedGeneratorMemory, NeedGe
                 new EmptyContainerAtCriticalNeedProvider(this, this.room, this.room, this.analyst, this.analyst, false),
                 new EnergyRefillAtCriticalNeedProvider(this, this.room, this.analyst),
                 new ResourcePickupAtCriticalProvider(this, this.room, this.room, this.analyst, false),
-                new HarvestEnergyAtCriticalNeedsProvider(this, this.room, this.analyst)
+                new HarvestEnergyAtCriticalNeedsProvider(this, this.room, this.analyst),
+                new RestAtSafeZoneNeedGenerator(this, this.analyst, false)
             )
         }
     }
@@ -235,7 +236,7 @@ export class RemoteRoomNeedGenerator extends NeedGeneratorBase<RemoteNeedGenerat
     }
 
     doInit(): void {
-        const parentRoom = this.parentRoom = Game.manager.getRoomManager(this.memory.parentRoomName)
+        const parentRoom = this.parentRoom = Game.manager.getOwnedRoomManager(this.memory.parentRoomName)
         this.room = this.remoteRoom = parentRoom?.getRemoteRoom(this.memory.roomName)
         this.analyst = this.room?.getRoomAnalyst()
         this.parentScheduler = parentRoom?.getNeedGenerator()
@@ -251,7 +252,8 @@ export class RemoteRoomNeedGenerator extends NeedGeneratorBase<RemoteNeedGenerat
                 new EmptyContainerNeedProvider(this.parentScheduler, this.room, this.parentRoom, this.analyst, this.parentAnalyst, true),
                 new RemoteBuildNeedProvider(this.parentScheduler, this.room, this.analyst, true),
                 new MineNeedsProvider(this.parentScheduler, this.analyst, true),
-                new ReserveNeedProvider(this.parentScheduler, this.remoteRoom)
+                new ReserveNeedProvider(this.parentScheduler, this.remoteRoom),
+                new RestAtSafeZoneNeedGenerator(this.parentScheduler, this.parentAnalyst, true),
             )
         }
     }

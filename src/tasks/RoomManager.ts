@@ -1,4 +1,4 @@
-import { Spawner } from "Spawner";
+import { Spawner, SpawnPriority } from "Spawner";
 import { RunResult, RunResultType } from "./AbstractTask";
 import { PersistentTask } from "./PersistentTask";
 import { BuilderCreepTemplate, GenericCreepTemplate, HaulerCreepTemplate, MinerCreepTemplate, ReserveCreepTemplate } from "spawner/CreepSpawnTemplate";
@@ -8,11 +8,12 @@ import { RoomBuilder } from "./RoomBuilder";
 import { NeedGenerator } from "needs/NeedGenerator";
 import { RoomDefender } from "./RoomDefender";
 import { RoomStats } from "./RoomStats";
-import { createEventBus, EventBusMaster, IEventBus } from "bus/EventBus";
+import { createEventBus, EventBusMaster } from "bus/EventBus";
 import { SpawnerEvents, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
 import { RemoteRoomManager } from "./RemoteRoomManager";
 import { Logger } from "Logger";
-import { IOwnedRoomManager } from "interfaces";
+import { IOwnedRoomManager, OwnerRoomBus } from "interfaces";
+import { ROOM_EVENTS_BUS_NAME, RoomEvents } from "bus/RoomActionsEvents";
 
 interface RoomManagerMemory {
     roomName: string
@@ -37,9 +38,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     private needGenerator: NeedGenerator | null
     private remoteRooms: RemoteRoomManager[]
 
-    private bus: EventBusMaster<{
-        [SPAWNER_BUS_NAME]: IEventBus<SpawnerEvents>
-    }>
+    private bus: OwnerRoomBus
 
     private logger = new Logger('RoomManager')
 
@@ -50,10 +49,11 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     }
 
     doPreInit() {
-        Game.manager.registerRoomManager(this);
+        Game.manager.registerOwnedRoomManager(this);
 
         this.bus = new EventBusMaster({
-            [SPAWNER_BUS_NAME]: createEventBus<SpawnerEvents>()
+            [SPAWNER_BUS_NAME]: createEventBus<SpawnerEvents>(),
+            [ROOM_EVENTS_BUS_NAME]: createEventBus<RoomEvents>(),
         })
     }
 
@@ -143,13 +143,12 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
             this.doLevel0()
         }
 
-        this.manageHaulers(1, false)
-        this.manageMiners(1)
-        this.manageHaulers(2, false)
-        this.manageMiners(2)
-        this.manageBuilders(1)
+        this.manageHaulers(1, false, SpawnPriority.HIGH)
+        this.manageMiners(1, false, SpawnPriority.HIGH)
+        this.manageHaulers(2, false, SpawnPriority.HIGH)
+        this.manageMiners(2, false, SpawnPriority.NORMAL)
         this.manageGeneric(1)
-        this.manageHaulers(3, false)
+        this.manageHaulers(3, false, SpawnPriority.NORMAL)
 
         this.manageRemoteActors()
 
@@ -166,7 +165,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         const baseCreeps = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_GENERIC)
 
         if(baseCreeps.length < 2) {
-            this.spawner.enqueue(new GenericCreepTemplate(this, true));
+            this.spawner.enqueue(new GenericCreepTemplate(this, true), SpawnPriority.HIGH);
         }
 
         this.needGenerator.assignTasks(baseCreeps)
@@ -214,7 +213,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
             .map(room => room.getRoomAnalyst()?.getMiningSites().length || 0)
             .reduce((a, b) => a + b, 0)
 
-        this.manageMiners(totalMiners, true)
+        this.manageMiners(totalMiners, true, SpawnPriority.NORMAL)
 
         const buildPoints = this.remoteRooms.map(
             room => room.getRoomAnalyst()?.getConstructionSites()
@@ -222,15 +221,15 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         ).reduce((a, b) => a + b, 0)
 
         if(buildPoints > 0) {
-            this.manageRemoteBuilders(1, true)
-            this.manageHaulers(1, true)
+            this.manageRemoteBuilders(1)
+            this.manageHaulers(1, true, SpawnPriority.NORMAL)
         }
         else {
-            this.manageHaulers(3, true)
+            this.manageHaulers(3, true, SpawnPriority.NORMAL)
         }
     }
 
-    private manageHaulers(maxHaulers: number, remote: boolean) {
+    private manageHaulers(maxHaulers: number, remote: boolean, priority: SpawnPriority) {
         if(!this.needGenerator || !this.spawner) {
             return
         }
@@ -238,13 +237,13 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         const haulers = this.filterCreeps(CREEP_ROLE_HAULER, remote)
 
         if(haulers.length < maxHaulers) {
-            this.spawner.enqueue(new HaulerCreepTemplate(this, remote));
+            this.spawner.enqueue(new HaulerCreepTemplate(this, remote), priority);
         }
 
         this.needGenerator.assignTasks(haulers, remote)
     }
 
-    private manageMiners(maxMiners: number, remote = false) {
+    private manageMiners(maxMiners: number, remote = false, priority: SpawnPriority) {
         if(!this.roomAnalyst || !this.needGenerator || !this.spawner) {
             return
         }
@@ -254,7 +253,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         miners = miners.filter(creep => creep.memory.remote === remote)
 
         if(miners.length < maxMiners) {
-            this.spawner.enqueue(new MinerCreepTemplate(this, remote));
+            this.spawner.enqueue(new MinerCreepTemplate(this, remote), priority);
         }
 
         this.needGenerator.assignTasks(miners, remote)
@@ -276,10 +275,12 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         this.needGenerator.assignTasks(builders, remote)
     }
 
-    private manageRemoteBuilders(maxBuilders: number, remote = false) {
+    private manageRemoteBuilders(maxBuilders: number) {
         if(!this.needGenerator || !this.spawner) {
             return
         }
+
+        const remote = true
 
         let builders = this.filterCreeps(CREEP_ROLE_BUILDER, remote)
 

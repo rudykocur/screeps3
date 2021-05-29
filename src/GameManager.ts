@@ -2,19 +2,16 @@ import { TaskManager } from "TaskManager";
 import { counter } from "GlobalCounter";
 import { RoomManager } from "tasks/RoomManager";
 import { ReservationManager } from "tasks/reservation/ReservationManager";
-import { IOwnedRoomManager } from "interfaces";
+import { IOwnedRoomManager, IRoomManager } from "interfaces";
 import { Logger } from "Logger";
 
 const logger = new Logger('global')
 logger.warn('Global reset ...')
 
 export class GameManager {
-    private rooms: RoomManager[];
+    private rooms: IOwnedRoomManager[] = []
+    private allRooms: IRoomManager[] = []
     private taskManager: TaskManager = new TaskManager();
-
-    constructor() {
-        this.rooms = [];
-    }
 
     run() {
         if(!Memory.config) {
@@ -48,7 +45,6 @@ export class GameManager {
 
         Object.values(Game.rooms).forEach(room => {
             if(room.find(FIND_MY_SPAWNS).length === 0) {
-                // console.log("Skipping unowned room", room);
                 return
             }
 
@@ -79,11 +75,20 @@ export class GameManager {
           }
     }
 
-    getRoomManager(roomName: string): IOwnedRoomManager | undefined {
+    getOwnedRoomManager(roomName: string) {
         return this.rooms.find(mgr => mgr.name === roomName)
     }
 
-    registerRoomManager(manager: RoomManager) {
+    registerOwnedRoomManager(manager: IOwnedRoomManager) {
         this.rooms.push(manager)
+        this.allRooms.push(manager)
+    }
+
+    getRoomManager(roomName: string) {
+        return this.allRooms.find(mgr => mgr.name === roomName)
+    }
+
+    registerRoomManager(manager: IRoomManager) {
+        this.allRooms.push(manager)
     }
 }

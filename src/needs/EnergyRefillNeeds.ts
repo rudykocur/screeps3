@@ -63,12 +63,20 @@ export class SpawnRefillNeedsProvider implements NeedsProvider {
 
         return this.analyst
             .getSpawns()
-            .filter(obj => obj.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
-            .filter(obj => obj.store.getFreeCapacity(RESOURCE_ENERGY) <= storedEnergy)
-            .map(obj => {
+            .map(spawn => {
+                const reserved = Game.reservationManager.getHandler(spawn)?.getReservedAmount() || 0
+
+                return {
+                    missing: spawn.store.getFreeCapacity(RESOURCE_ENERGY) - reserved,
+                    obj: spawn,
+                }
+            })
+            .filter(data => data.missing > 0)
+            .filter(data => data.missing <= storedEnergy)
+            .map(data => {
                 return new EnergyRefillNeed(this.scheduler, this.room, {
-                    target: obj,
-                    amount: obj.store.getFreeCapacity(RESOURCE_ENERGY),
+                    target: data.obj,
+                    amount: data.missing,
                     roles: this.roles,
                 })
             }) || []
@@ -255,6 +263,8 @@ export class EnergyRefillNeed implements Need {
             actor: actor,
             structure: this.target
         })
+
+        parent.reserveResouces(this.amount)
 
         this.scheduler.scheduleChildTask(parent, WithdrawEnergy, {
             actor: actor,

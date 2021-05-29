@@ -34,7 +34,7 @@ export class WithdrawEnergy extends PersistentTask<WithdrawEnergyMemory, Withdra
     }
     doInit(): void {
         this.actor = Game.getObjectById(this.memory.actorId)
-        this.room = Game.manager.getRoomManager(this.memory.roomName)
+        this.room = Game.manager.getOwnedRoomManager(this.memory.roomName)
         this.analyst = this.room?.getRoomAnalyst()
 
         this.amount = this.memory.amount
