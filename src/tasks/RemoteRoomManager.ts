@@ -15,9 +15,11 @@ import { ROOM_EVENTS_BUS_NAME, RoomEvents } from "bus/RoomActionsEvents";
 import { RemoteRoomStats } from "./RoomStats";
 import { ThreatEvents, THREAT_EVENTS_BUS_NAME } from "bus/ThreatEvents";
 import { RoomThreatManager } from "./RoomThreatManager";
+import { nameSelector } from "utils/RoomNaming";
 
 interface RemoteRoomManagerMemory {
     roomName: string
+    roomLabel: string
     parentRoomName: string
     scout?: ScoutMemoryData
 }
@@ -45,7 +47,6 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
 
     private scout?: Creep | null
     private creeps: Creep[]
-    private enemies: Creep[] = []
 
     private spawnId?: string | null
 
@@ -53,10 +54,21 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
 
     private logger = new Logger('RemoteRoomManager')
 
+    private selectName(parentRoomName: string) {
+        const parent = Game.manager.getOwnedRoomManager(parentRoomName)
+        if(parent) {
+            const rooms = parent.getRemoteRooms().map(room => room.label)
+            return nameSelector.selectLocation(parent.namingGroup, rooms)
+        }
+
+        return null
+    }
+
     initMemory(args: RemoteRoomManagerArgs): RemoteRoomManagerMemory {
         return {
             roomName: args.roomName,
-            parentRoomName: args.parentRoom.name
+            parentRoomName: args.parentRoom.name,
+            roomLabel: this.selectName(args.parentRoom.name) || ""
         }
     }
 
@@ -86,15 +98,6 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
         }
 
         this.creeps = Object.values(Game.creeps).filter(creep => creep.memory.room === this.memory.roomName)
-        if(this.room) {
-            this.enemies = this.room.find(FIND_HOSTILE_CREEPS, {
-                filter: creep => {
-                    return creep.getActiveBodyparts(ATTACK) > 0
-                        || creep.getActiveBodyparts(RANGED_ATTACK) > 0
-                        || creep.getActiveBodyparts(HEAL) > 0
-                }
-            })
-        }
 
         if(this.analyst) {
             this.stats?.setAnalyst(this.analyst)
@@ -148,7 +151,17 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
             }
         }
 
-        if(this.enemies.length > 0) {
+        this.doThreatHandling()
+    }
+
+    private doThreatHandling() {
+        if(!this.parentRoom || !this.threatManager) {
+            return
+        }
+
+        const status = this.threatManager.getThreatStatus()
+
+        if(status.isActive()) {
             const defenders = this.creeps.filter(creep => creep.memory.role === CREEP_ROLE_DEFENDER)
 
             if(defenders.length <= 0) {
@@ -160,7 +173,7 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
                 if(!task) {
                     this.scheduleBackgroundTask(HuntEnemies, {
                         actor: defenders[0],
-                        enemies: this.enemies
+                        enemies: status.getHostileCreeps()
                     })
                 }
             }
@@ -169,7 +182,7 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
 
     handleCreepCreated(event: CreepCreatedEvent) {
         if(this.spawnId && event.spawnId === this.spawnId) {
-            this.logger.important('Created scout for room ' + this.name)
+            this.logger.important(this, 'Created scout')
             this.memory.scout = {
                 actorName: event.creepName
             }
@@ -191,6 +204,11 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
     }
 
     getNeedsReserver() {
+        const threat = this.threatManager?.getThreatStatus()
+        if(threat && threat.isActive()) {
+            return false
+        }
+
         const reservation = this.room?.controller?.reservation
         if(reservation === undefined) {
             return true
@@ -199,6 +217,9 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
         return reservation.ticksToEnd < 4000
     }
 
+    getController() {
+        return this.room?.controller
+    }
     getEventBus() {
         return this.bus
     }
@@ -207,8 +228,16 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
         return this.threatManager
     }
 
+    getRoomStats() {
+        return this.stats
+    }
+
     get name() {
         return this.memory.roomName
+    }
+
+    get label() {
+        return this.memory.roomLabel
     }
 
     get parentRoomName() {
@@ -216,6 +245,6 @@ export class RemoteRoomManager extends PersistentTask<RemoteRoomManagerMemory, R
     }
 
     toString() {
-        return `[RemoteRoomManager ${this.memory.roomName} parent=${this.memory.parentRoomName}]`
+        return `[RemoteRoomManager ${this.memory.roomLabel} parent=${this.parentRoom?.label || this.memory.parentRoomName}]`
     }
 }

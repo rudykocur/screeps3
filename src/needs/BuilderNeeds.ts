@@ -23,7 +23,7 @@ export class BuildNeedProvider implements NeedsProvider {
         const storage = this.analyst.getStorage()
         const storedEnergy = this.analyst.getStorage()?.getResourceAmount(RESOURCE_ENERGY)
 
-        if(storage?.isConstructed() && (!storedEnergy || storedEnergy < 600)) {
+        if(storage?.isConstructed() && (!storedEnergy || storedEnergy < 10000)) {
             return []
         }
 

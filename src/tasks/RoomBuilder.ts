@@ -20,6 +20,7 @@ const MAX_ROAD_CONSTRUCTION_SITES = 5
 export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderArgs> {
     private analyst?: RoomAnalyst | null
     private room: Room
+    private manager?: IRoomManager | null
 
     private logger = new Logger('RoomBuilder')
 
@@ -30,6 +31,7 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
     }
     doInit(): void {
         this.room = Game.rooms[this.memory.roomName]
+        this.manager = Game.manager.getRoomManager(this.memory.roomName)
     }
 
     doLateInit() {
@@ -59,7 +61,7 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
             this.buildRoads(this.analyst)
         }
         else {
-            this.logger.important(this, 'not running - storage in construction')
+            this.logger.info(this, 'not running - storage in construction')
         }
 
         this.sleep(10)
@@ -183,7 +185,7 @@ export class RoomBuilder extends PersistentTask<RoomBuilderMemory, RoomBuilderAr
     }
 
     toString() {
-        return `[RoomBuilder ${this.memory.roomName}]`
+        return `[RoomBuilder ${this.manager?.label || this.memory.roomName}]`
     }
 }
 

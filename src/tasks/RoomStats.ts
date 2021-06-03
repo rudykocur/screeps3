@@ -2,15 +2,16 @@ import { CreepRole } from "../constants";
 import { RunResultType } from "./AbstractTask";
 import { PersistentTask } from "./PersistentTask";
 import { RoomAnalyst } from "./RoomAnalyst";
-import { IOwnedRoomManager, IRoomManager } from "interfaces";
+import { IOwnedRoomManager, IOwnedRoomStats, IRemoteRoomStats, IRoomManager } from "interfaces";
 import { TaskInitArgs, TaskMemory, Type } from "types";
 import { StatProvider } from "stats/interfaces";
 import { EnergyInStorageMemory, EnergyInStorageStatProvider } from "stats/providers/EnergyInStorageStatProvider";
 import { EnergyToPickupMemory, EnergyToPickupStatProvider } from "stats/providers/EnergyToPickupStatProvider";
 import { LastSpawnTimeMemory, LastSpawnTimeStatProvider } from "stats/providers/LastSpawnTimeStatProvider";
 import { EnergyHarvestedMemory, EnergyHarvestedStatProvider } from "stats/providers/EnergyHarvestedStatProvider";
+import { SpawnerUsageMemory, SpawnerUsageStatProvider } from "stats/providers/SpawnerUsageStatProvider";
 
-interface RoomStatsMemory extends EnergyToPickupMemory, EnergyInStorageMemory, LastSpawnTimeMemory, EnergyHarvestedMemory {
+interface RoomStatsMemory extends EnergyToPickupMemory, EnergyInStorageMemory, LastSpawnTimeMemory, EnergyHarvestedMemory, SpawnerUsageMemory {
     roomName: string
 }
 
@@ -27,7 +28,7 @@ export abstract class RoomStatsBase<M extends TaskMemory, IA extends TaskInitArg
 }
 
 @PersistentTask.register
-export class RoomStats extends RoomStatsBase<RoomStatsMemory, RoomStatsArgs> {
+export class RoomStats extends RoomStatsBase<RoomStatsMemory, RoomStatsArgs> implements IOwnedRoomStats {
     private analyst?: RoomAnalyst | null
     private room?: IOwnedRoomManager | null
 
@@ -44,6 +45,7 @@ export class RoomStats extends RoomStatsBase<RoomStatsMemory, RoomStatsArgs> {
             this.providers = [
                 new EnergyToPickupStatProvider(this.memory),
                 new EnergyInStorageStatProvider(this.memory),
+                new SpawnerUsageStatProvider(this.memory, this.room),
                 new LastSpawnTimeStatProvider(this.memory, this.room),
                 new EnergyHarvestedStatProvider(this.memory, this.room),
             ]
@@ -82,8 +84,12 @@ export class RoomStats extends RoomStatsBase<RoomStatsMemory, RoomStatsArgs> {
         return this.getProvider(EnergyHarvestedStatProvider).getHarvestedAmount()
     }
 
+    getAverageSpawnUsage() {
+        return this.getProvider(SpawnerUsageStatProvider).getAverageUsage()
+    }
+
     toString() {
-        return `[RoomStats ${this.memory.roomName}]`
+        return `[RoomStats ${this.room?.label || this.memory.roomName}]`
     }
 }
 
@@ -96,7 +102,7 @@ interface RemoteRoomStatsArgs {
 }
 
 @PersistentTask.register
-export class RemoteRoomStats extends RoomStatsBase<RemoteRoomStatsMemory, RemoteRoomStatsArgs> {
+export class RemoteRoomStats extends RoomStatsBase<RemoteRoomStatsMemory, RemoteRoomStatsArgs> implements IRemoteRoomStats {
     private analyst?: RoomAnalyst
     private room?: IRoomManager | null
 
@@ -142,6 +148,6 @@ export class RemoteRoomStats extends RoomStatsBase<RemoteRoomStatsMemory, Remote
     }
 
     toString() {
-        return `[RmoteRoomStats ${this.memory.roomName}]`
+        return `[RmoteRoomStats ${this.room?.label || this.memory.roomName}]`
     }
 }

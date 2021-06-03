@@ -1,6 +1,6 @@
 import { IEventBus } from "bus/EventBus";
 import { ThreatEvents, ThreatEventsChannel, THREAT_EVENTS_BUS_NAME } from "bus/ThreatEvents";
-import { IThreatManager } from "interfaces";
+import { IRoomManager, IThreatManager } from "interfaces";
 import { Logger } from "Logger";
 import { RunResultType } from "./AbstractTask";
 import { PersistentTask } from "./PersistentTask";
@@ -21,6 +21,7 @@ export class RoomDefender extends PersistentTask<RoomDefenderMemory, RoomDefende
 
     private analyst?: RoomAnalyst | null
     private room?: Room | null
+    private manager?: IRoomManager | null
     private eventBus?: IEventBus<ThreatEvents>
     private threatManager?: IThreatManager | null
 
@@ -34,6 +35,7 @@ export class RoomDefender extends PersistentTask<RoomDefenderMemory, RoomDefende
 
     doInit(): void {
         this.room = Game.rooms[this.memory.roomName]
+        this.manager = Game.manager.getRoomManager(this.memory.roomName)
     }
 
     doLateInit() {
@@ -95,6 +97,6 @@ export class RoomDefender extends PersistentTask<RoomDefenderMemory, RoomDefende
     }
 
     toString() {
-        return `[RoomDefender ${this.memory.roomName}]`
+        return `[RoomDefender ${this.manager?.label || this.memory.roomName}]`
     }
 }

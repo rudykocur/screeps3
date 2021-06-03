@@ -60,6 +60,7 @@ export class ReserveRoom extends PersistentTask<ReserveRoomMemory, ReserveRoomAr
 
             if(controller) {
                 if(!this.actor.pos.isNearTo(controller)) {
+                    Game.reservationManager.getHandler(controller)?.reserve(this, 1)
                     this.scheduleBlockingTask(MoveTask, {
                         actor: this.actor,
                         target: controller.pos,
@@ -67,6 +68,9 @@ export class ReserveRoom extends PersistentTask<ReserveRoomMemory, ReserveRoomAr
                     })
                 }
                 else {
+                    if(controller.sign?.text !== this.manager.label) {
+                        this.actor.signController(controller, this.manager.label)
+                    }
                     this.actor.reserveController(controller)
                 }
             }

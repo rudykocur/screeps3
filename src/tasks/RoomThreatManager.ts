@@ -18,6 +18,10 @@ interface RoomThreatManagerArgs {
 
 const INVADER_USER_NAME = "Invader"
 
+function isInvaderAttack(creeps: Creep[]) {
+    return !!creeps.find(creep => creep.owner.username === INVADER_USER_NAME)
+}
+
 export class ThreatStatus {
     constructor(
         private hostile: Creep[],
@@ -33,7 +37,7 @@ export class ThreatStatus {
     }
 
     isInvaderAttack() {
-        return this.hostile.find(creep => creep.owner.username === INVADER_USER_NAME)
+        return isInvaderAttack(this.hostile)
     }
 
     isActive() {
@@ -45,6 +49,7 @@ export class ThreatStatus {
 export class RoomThreatManager extends PersistentTask<RoomThreatManagerMemory, RoomThreatManagerArgs> implements IThreatManager {
 
     private room?: Room | null
+    private manager?: IRoomManager | null
     private knowEnemies: Creep[]
     private eventBus?: IEventBus<ThreatEvents>
     private threatStatus: ThreatStatus
@@ -60,9 +65,9 @@ export class RoomThreatManager extends PersistentTask<RoomThreatManagerMemory, R
     doInit(): void {
         this.room = Game.rooms[this.memory.roomName]
 
-        const manager = Game.manager.getRoomManager(this.memory.roomName)
+        this.manager = Game.manager.getRoomManager(this.memory.roomName)
 
-        this.eventBus = manager?.getEventBus().getBus(THREAT_EVENTS_BUS_NAME)
+        this.eventBus = this.manager?.getEventBus().getBus(THREAT_EVENTS_BUS_NAME)
 
         this.knowEnemies = this.memory.knownCreeps
             ?.map(id => Game.getObjectById(id))
@@ -73,11 +78,11 @@ export class RoomThreatManager extends PersistentTask<RoomThreatManagerMemory, R
     }
 
     doRun(): RunResultType {
-        if(!this.room) {
+        if(!this.room || !this.manager) {
             return
         }
 
-        this.analyzeHostileCreeps(this.room)
+        this.analyzeHostileCreeps(this.room, this.manager)
 
         if(this.knowEnemies.length === 0) {
             this.sleep(10)
@@ -85,16 +90,18 @@ export class RoomThreatManager extends PersistentTask<RoomThreatManagerMemory, R
         }
     }
 
-    private analyzeHostileCreeps(room: Room) {
+    private analyzeHostileCreeps(room: Room, manager: IRoomManager) {
         const creeps = room.find(FIND_HOSTILE_CREEPS)
 
         if(this.knowEnemies.length === 0 && creeps.length > 0) {
-            Game.notify(`[${Game.time}] New threat in room ${room}`, 5)
+            this.logger.email(`New threat in room ${manager}`, 5)
             this.logger.warn(this, `Threat started!`)
-            this.eventBus?.dispatch(ThreatEventsChannel.THREAT_STARTED, {})
+            this.eventBus?.dispatch(ThreatEventsChannel.THREAT_STARTED, {
+                isInvader: isInvaderAttack(creeps)
+            })
         }
         if((this.memory.knownCreeps?.length || 0) > 0 && creeps.length === 0) {
-            Game.notify(`[${Game.time}] Threat in room ${room} eliminated!`, 5)
+            this.logger.email(`Threat in room ${manager} eliminated!`, 5)
             this.logger.warn(this, `Threat ended!`)
             this.eventBus?.dispatch(ThreatEventsChannel.THREAT_ENDED, {})
         }
@@ -102,7 +109,7 @@ export class RoomThreatManager extends PersistentTask<RoomThreatManagerMemory, R
         if(this.memory.knownCreeps) {
             for(const creep of creeps) {
                 if(this.memory.knownCreeps.indexOf(creep.id) < 0) {
-                    Game.notify(`[${Game.time}] New enemy creep [${creep.name}] from [${creep.owner.username}] with body ${this.creepBodyToString(creep)}`, 5)
+                    this.logger.email(`New enemy creep [${creep.name}] from [${creep.owner.username}] with body ${this.creepBodyToString(creep)}`, 5)
                     this.logger.info(this, `Spotted new enemy creep ${creep} at ${creep.pos}`)
                     this.eventBus?.dispatch(ThreatEventsChannel.NEW_THREAT, {
                         creep: creep,
@@ -114,6 +121,8 @@ export class RoomThreatManager extends PersistentTask<RoomThreatManagerMemory, R
 
         this.knowEnemies = creeps
         this.memory.knownCreeps = this.knowEnemies.map(creep => creep.id)
+        const [hostile, neutral] = this.divideCreeps(this.knowEnemies)
+        this.threatStatus = new ThreatStatus(hostile, neutral)
     }
 
     private divideCreeps(creeps: Creep[]) {
@@ -137,7 +146,7 @@ export class RoomThreatManager extends PersistentTask<RoomThreatManagerMemory, R
     }
 
     private creepBodyToString(creep: Creep) {
-        return creep.body.map(part => part.type + part.boost ? `[${part.boost}]` : "").join(', ')
+        return creep.body.map(part => part.type + (part.boost ? `[${part.boost}]` : "")).join(', ')
     }
 
     getThreatStatus() {
@@ -145,6 +154,6 @@ export class RoomThreatManager extends PersistentTask<RoomThreatManagerMemory, R
     }
 
     toString() {
-        return `[RoomThreatManager ${this.memory.roomName}]`
+        return `[RoomThreatManager ${this.manager?.label || this.memory.roomName}]`
     }
 }

@@ -6,6 +6,7 @@ import { isBuildable, notEmpty } from "utils/common";
 import { CREEP_ROLE_MINER, CREEP_ROLE_HAULER } from "../constants";
 import { flagSelectors } from "../utils/common"
 import { Logger } from "Logger";
+import { IRoomManager } from "interfaces";
 
 interface RoomAnalystMemory {
     roomName: string,
@@ -138,6 +139,7 @@ export class RoomStorageWrapper {
 @PersistentTask.register
 export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystArgs> {
 
+    private manager?: IRoomManager | null
     private room: Room
     private safeZone?: RoomPosition | null
     private miningSites: MiningSite[]
@@ -241,6 +243,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
 
     doInit() {}
 
+    doLateInit() {
+        this.manager = Game.manager.getRoomManager(this.memory.roomName)
+    }
+
     doRun(): RunResultType {
         if(!this.room) {
             this.logger.important(this, 'NOT running analysis - no room available')
@@ -248,7 +254,7 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
             return
         }
 
-        this.logger.important(this, 'Running analysis ...')
+        this.logger.info(this, 'Running analysis ...')
 
         this.analyzeSafeZone()
         this.analyzeStorage()
@@ -515,12 +521,41 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     }
 
     private analyzeExpansionDirections() {
+        const roomsToAnalyze = [this.room.name]
+        const expansionRooms = []
+
+        let i = 0
+
+        while(roomsToAnalyze.length > 0) {
+            const roomName = roomsToAnalyze.shift()
+
+            if(!roomName) {
+                break
+            }
+
+            const nextRooms = this.analyzeRoomExits(roomName)
+
+            expansionRooms.push(...nextRooms)
+            roomsToAnalyze.push(...nextRooms)
+
+            i++
+            if(i > 50) {
+                this.logger.warn(this, `rooms recurence reached toAnalyze=${roomsToAnalyze} expansions=${expansionRooms}`)
+            }
+        }
+
+        this.memory.expansionDirections = expansionRooms
+
+        this.logger.debug(this, 'Expansion directions:', this.memory.expansionDirections)
+    }
+
+    private analyzeRoomExits(roomName: string) {
         const flags = Object.values(Game.flags)
-            .filter(flag => flag.pos.roomName === this.room.name)
+            .filter(flag => flag.pos.roomName === roomName)
             .filter(flagSelectors.isExpansionFlag)
 
-        const roomExits = Game.map.describeExits(this.room.name)
-        this.memory.expansionDirections = flags
+        const roomExits = Game.map.describeExits(roomName)
+        return flags
             .map(flag => {
                 if(flag.pos.x === 0) {
                     return FIND_EXIT_LEFT
@@ -543,8 +578,6 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
                 return roomExits[exitStrCode]
             })
             .filter(notEmpty)
-
-        this.logger.debug(this, 'Expansion directions:', this.memory.expansionDirections)
     }
 
     doVisualize() {
@@ -637,6 +670,10 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     }
 
     getDroppedResources() {
+        if(!this.room) {
+            return []
+        }
+
         return this.room
             .find(FIND_DROPPED_RESOURCES)
             .filter(res => res.amount > 100)
@@ -666,6 +703,6 @@ export class RoomAnalyst extends PersistentTask<RoomAnalystMemory, RoomAnalystAr
     }
 
     toString() {
-        return `[RoomAnalyst ${this.memory.roomName}]`
+        return `[RoomAnalyst ${this.manager?.label || this.memory.roomName}]`
     }
 }

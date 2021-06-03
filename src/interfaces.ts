@@ -25,8 +25,18 @@ export interface IThreatManager {
     getThreatStatus(): ThreatStatus
 }
 
+export interface IRoomStats {
+    getAverageEnergyToPickup(): number
+    getHarvestedEnergy(): number
+}
+
+export interface IOwnedRoomStats extends IRoomStats {}
+
+export interface IRemoteRoomStats extends IRoomStats {}
+
 export interface IRoomManager {
     name: string
+    label: string
     getRoomAnalyst(): RoomAnalyst | null
     getNeedGenerator(): INeedGenerator | null
     getDroppedResources(withStorage?: boolean): Resource<ResourceConstant>[]
@@ -35,14 +45,20 @@ export interface IRoomManager {
 }
 
 export interface IOwnedRoomManager extends IRoomManager {
+    namingGroup: string
     getRemoteRoom(roomName: string): IRemoteRoom | undefined
+    getRemoteRooms(): IRemoteRoom[]
     getSpawner(): Spawner | null | undefined
     getMaxSpawnPower(): number
     getEventBus(): OwnedRoomBus
+    getRoomStats(): IOwnedRoomStats | null
 }
 
 export interface IRemoteRoom extends IRoomManager {
     parentRoomName: string | undefined
+    getController(): StructureController | undefined
+    getNeedsReserver(): boolean
+    getRoomStats(): IRemoteRoomStats | null
 }
 
 export interface IScheduler {

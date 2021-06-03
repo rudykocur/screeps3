@@ -7,7 +7,9 @@ export enum ThreatEventsChannel {
     THREAT_ENDED = 'threatEnded',
 }
 
-export interface ThreatStartedEvent {}
+export interface ThreatStartedEvent {
+    isInvader: boolean
+}
 
 export interface NewThreatEvent {
     creep: Creep

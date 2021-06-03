@@ -1,10 +1,11 @@
 import { IEventBus } from "bus/EventBus";
 import { SpawnerChannel, SpawnerEvents, SPAWNER_BUS_NAME } from "bus/SpawnerEvents";
 import { counter } from "GlobalCounter";
+import { IOwnedRoomManager } from "interfaces";
 import { Logger } from "Logger";
 import { CreepSpawnTemplate } from "spawner/CreepSpawnTemplate";
 import { RoomAnalyst } from "tasks/RoomAnalyst";
-import { RoomManager } from "tasks/RoomManager";
+import { nameSelector } from "utils/RoomNaming";
 
 interface SpawnQueueEntry {
     template: CreepSpawnTemplate,
@@ -65,7 +66,7 @@ export class Spawner {
     private spawners: StructureSpawn[]
 
     constructor(
-        private roomName: string,
+        private room: IOwnedRoomManager,
         private eventBus: IEventBus<SpawnerEvents>,
         private analyst: RoomAnalyst,
     ) {
@@ -96,10 +97,12 @@ export class Spawner {
                 const template = spawnEntry.template
 
                 const memory = template.getMemory()
+                const creepLabel = nameSelector.selectActorName(this.room.namingGroup)
 
-                const creepName = `${this.roomName}-${freeSpawner.name}-${memory.role}-${Game.time}`;
+                const creepName = `${this.room.label}-${creepLabel}-${memory.role}-${Game.time}`
+                const bodyParts = template.getBodyParts()
 
-                const result = freeSpawner.spawnCreep(template.getBodyParts(), creepName, {
+                const result = freeSpawner.spawnCreep(bodyParts, creepName, {
                     memory: template.getMemory(),
                     energyStructures: structures
                 })
@@ -110,9 +113,12 @@ export class Spawner {
 
                     this.eventBus.dispatch(SpawnerChannel.CREEP_CREATED, {
                         spawnId: spawnEntry.spawnId,
-                        roomName: this.roomName,
+                        spawnerId: freeSpawner.id,
+                        roomName: this.room.name,
+                        roomLabel: this.room.label,
                         role: memory.role,
                         creepName: creepName,
+                        duration: bodyParts.length * CREEP_SPAWN_TIME
                     })
                 }
 
@@ -138,6 +144,6 @@ export class Spawner {
     }
 
     toString() {
-        return `[Spawner ${this.roomName}]`
+        return `[Spawner ${this.room.label}]`
     }
 }

@@ -9,6 +9,7 @@ import { ReservationManagerMemory, ReservationManagerArgs, ReservableHandler, IR
 import { ExtensionCluster } from "tasks/RoomAnalyst";
 import { ExtensionClusterReservation } from "./ExtensionClusterReservation";
 import { Logger } from "Logger";
+import { ControllerReservation } from "./ControllerReservation";
 
 type ReserveClasses =
     | StructureSpawn
@@ -19,6 +20,7 @@ type ReserveClasses =
     | Ruin
     | StructureExtension
     | StructureTower
+    | StructureController
 
 @PersistentTask.register
 export class ReservationManager extends PersistentTask<ReservationManagerMemory, ReservationManagerArgs> implements IReservationManager {
@@ -48,7 +50,9 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
                 const targetId = handler.getTargetId()
 
                 if(!targetId) {
-                    this.logger.debug(this, 'WARNING! No target for', handlerData.type, '::', handlerData.targetId, '::', JSON.stringify(handlerData.data))
+                    if(handlerData.data.volatile !== true) {
+                        this.logger.debug(this, 'WARNING! No target for', handlerData.type, '::', handlerData.targetId, '::', JSON.stringify(handlerData.data))
+                    }
                     this.memory.handlers = this.memory.handlers.filter(handler => handler.targetId !== handlerData.targetId)
                     return
                 }
@@ -129,6 +133,10 @@ export class ReservationManager extends PersistentTask<ReservationManagerMemory,
 
         if(type instanceof ExtensionCluster) {
             return new ExtensionClusterReservation(this)
+        }
+
+        if(type instanceof StructureController) {
+            return new ControllerReservation(this)
         }
 
         throw Error("Unknown reserve type " + type.constructor.name)

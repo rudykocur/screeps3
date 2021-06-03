@@ -1,5 +1,5 @@
 import { GenericTask } from "TaskManager"
-import { StructureWithGeneralStorage, Optional } from "types"
+import { StructureWithGeneralStorage, Optional, ReservableStructures } from "types"
 import { IReservationManager, ReservableHandler, ReservationChunk, ReservationMemory } from "./common"
 
 interface ContainerReservationChunk extends ReservationChunk {
@@ -7,24 +7,33 @@ interface ContainerReservationChunk extends ReservationChunk {
 }
 
 interface ContainerReservationMemory extends ReservationMemory {
-    containerId: Id<StructureWithGeneralStorage>
+    containerId: Id<ReservableStructures>
     name?: string,
     chunks: ContainerReservationChunk[]
+}
+
+function isTombstone(obj: ReservableStructures): obj is Tombstone {
+    return 'deathTime' in obj
+}
+
+function isRuin(obj: ReservableStructures): obj is Ruin {
+    return 'destroyTime' in obj
 }
 
 @IReservationManager.registerReservationHandler
 export class ContainerReservation implements ReservableHandler {
 
-    private container?: Optional<StructureWithGeneralStorage>
+    private container?: Optional<ReservableStructures>
     private reservedChunks: ContainerReservationChunk[]
 
     constructor(private manager: IReservationManager) {}
 
-    initMemory(target: StructureWithGeneralStorage): ContainerReservationMemory {
+    initMemory(target: ReservableStructures): ContainerReservationMemory {
         return {
             containerId: target.id,
             name: target.toString(),
-            chunks: []
+            chunks: [],
+            volatile: isTombstone(target) || isRuin(target)
         }
     }
 

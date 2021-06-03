@@ -33,7 +33,7 @@ export class EmptyContainerNeedProvider implements NeedsProvider {
             .filter(notEmpty)
             .filter(container => {
                 const reserved = Game.reservationManager.getHandler(container)?.getReservedAmount() || 0
-                const averageCarry = this.analyst.getHaulerCarryCapacity()
+                const averageCarry = this.storageAnalyst.getHaulerCarryCapacity()
                 const minimumAmount = Math.min(container.store.getCapacity()/2, averageCarry*0.66)
                 return container.store.getUsedCapacity() - reserved > minimumAmount
             })

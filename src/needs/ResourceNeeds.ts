@@ -26,7 +26,7 @@ export class ResourcePickupProvider implements NeedsProvider {
         return this.room.getDroppedResources()
             .filter(resource => {
                 const reserved = Game.reservationManager.getHandler(resource)?.getReservedAmount() || 0
-                return resource.amount - reserved > 100
+                return resource.amount - reserved > 400
             })
             .map(resource => {
                 return new ResourcePickupNeed(
@@ -59,7 +59,6 @@ export class ResourcePickupAtCriticalProvider extends ResourcePickupProvider {
 export class ResourcePickupNeed implements ResourceTransferNeed {
     roles: CreepRole[] = [CREEP_ROLE_HAULER]
     infinite = false
-    priority = NeedPriority.NORMAL
 
     public amount: number
     public resource: Resource
@@ -85,6 +84,14 @@ export class ResourcePickupNeed implements ResourceTransferNeed {
                 this.roles = roles
             }
         }
+
+    get priority() {
+        if(this.amount < 600) {
+            return NeedPriority.LOW
+        }
+
+        return NeedPriority.NORMAL
+    }
 
     generate(actor: Creep) {
         const parentTask = this.scheduler.scheduleBackgroundTask(DepositEnergy, {

@@ -11,7 +11,7 @@ export interface LastSpawnTimeMemory {
 }
 
 export class LastSpawnTimeStatProvider implements StatProvider {
-    private logger = new Logger('StatProvider_LastSpawn')
+    private logger = new Logger('LastSpawnTimeStatProvider')
 
     constructor(
         private memory: LastSpawnTimeMemory,
@@ -38,7 +38,7 @@ export class LastSpawnTimeStatProvider implements StatProvider {
 
     handleSpawnEvent(event: CreepCreatedEvent) {
         if(this.memory.lastSpawnTime) {
-            this.logger.debug(this, "GOT DATA FOR SPAWN EVENT", event.roomName, '::', event.role)
+            this.logger.debug(this, `Updated spawn time for role [${event.role}]`)
             this.memory.lastSpawnTime[event.role] = Game.time
         }
         else {
@@ -47,6 +47,6 @@ export class LastSpawnTimeStatProvider implements StatProvider {
     }
 
     toString() {
-        return `[LastSpawnTimeStatProvider room=${this.room.name}]`
+        return `[LastSpawnTimeStatProvider room=${this.room.label}]`
     }
 }

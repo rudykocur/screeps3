@@ -22,7 +22,8 @@ export class ResourceReservation implements ReservableHandler {
     initMemory(target: Resource): ResourceReservationMemory {
         return {
             resourceId: target.id,
-            chunks: []
+            chunks: [],
+            volatile: true,
         }
     }
 

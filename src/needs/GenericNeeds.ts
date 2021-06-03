@@ -120,7 +120,7 @@ export class UpgradeControllerNeed implements Need {
     }
 
     toString() {
-        return `[UpgradeControllerNeed room=${this.room.name}]`
+        return `[UpgradeControllerNeed room=${this.room.label}]`
     }
 }
 
@@ -150,7 +150,7 @@ export class RestAtSafeZoneNeedGenerator implements NeedsProvider {
 
 export class RestAtSafeZoneNeed implements Need {
     priority = NeedPriority.LAST
-    infinite: boolean = false
+    infinite: boolean = true
     roles: CreepRole[] = [CREEP_ROLE_GENERIC, CREEP_ROLE_HAULER, CREEP_ROLE_BUILDER]
 
     constructor(

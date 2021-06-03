@@ -75,6 +75,10 @@ export class GameManager {
           }
     }
 
+    getOwnedRooms() {
+        return this.rooms
+    }
+
     getOwnedRoomManager(roomName: string) {
         return this.rooms.find(mgr => mgr.name === roomName)
     }

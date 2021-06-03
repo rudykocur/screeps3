@@ -16,9 +16,12 @@ import { IOwnedRoomManager, OwnedRoomBus } from "interfaces";
 import { ROOM_EVENTS_BUS_NAME, RoomEvents } from "bus/RoomActionsEvents";
 import { ThreatEvents, THREAT_EVENTS_BUS_NAME } from "bus/ThreatEvents";
 import { RoomThreatManager } from "./RoomThreatManager";
+import { nameSelector } from "utils/RoomNaming";
 
 interface RoomManagerMemory {
     roomName: string
+    roomLabel: string
+    namingGroup: string
 }
 
 interface RoomManagerArgs {
@@ -46,8 +49,16 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
     private logger = new Logger('RoomManager')
 
     initMemory(args: RoomManagerArgs): RoomManagerMemory {
+        const rooms = Game.manager.getOwnedRooms()
+            .map(room => room.namingGroup)
+
+        const namingGroup = nameSelector.selectGroup(rooms)
+        const roomLabel = nameSelector.selectMainLocation(namingGroup) || ""
+
         return {
-            roomName: args.room.name
+            roomName: args.room.name,
+            namingGroup: namingGroup,
+            roomLabel: roomLabel
         }
     }
 
@@ -89,7 +100,7 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         })
 
         if(this.roomAnalyst) {
-            this.spawner = new Spawner(this.name, this.bus.getBus(SPAWNER_BUS_NAME), this.roomAnalyst)
+            this.spawner = new Spawner(this, this.bus.getBus(SPAWNER_BUS_NAME), this.roomAnalyst)
         }
     }
 
@@ -228,11 +239,8 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
 
         if(buildPoints > 0) {
             this.manageRemoteBuilders(1)
-            this.manageHaulers(1, true, SpawnPriority.NORMAL)
         }
-        else {
-            this.manageHaulers(3, true, SpawnPriority.NORMAL)
-        }
+        this.manageHaulers(6, true, SpawnPriority.NORMAL)
     }
 
     private manageHaulers(maxHaulers: number, remote: boolean, priority: SpawnPriority) {
@@ -362,15 +370,68 @@ export class RoomManager extends PersistentTask<RoomManagerMemory, RoomManagerAr
         return this.remoteRooms.find(room => room.name === roomName)
     }
 
+    getRemoteRooms() {
+        return this.remoteRooms
+    }
+
     getThreatManager() {
         return this.roomThreatManager
+    }
+
+    getRoomStats() {
+        return this.roomStats
     }
 
     get name() {
         return this.memory.roomName
     }
 
+    get label() {
+        return this.memory.roomLabel
+    }
+
+    get namingGroup() {
+        return this.memory.namingGroup
+    }
+
+    doVisualize() {
+        for(const spawnUsage of (this.roomStats?.getAverageSpawnUsage() || [])) {
+            if(!spawnUsage.spawn) {
+                continue
+            }
+
+            this.room.visual.text(`${spawnUsage.usage}% (${spawnUsage.ticksUsed})`, spawnUsage.spawn?.pos, {
+                stroke: 'black',
+                color: 'white',
+            })
+        }
+
+        const energyValues:number[] = []
+        const statLines = []
+        for(const room of this.remoteRooms) {
+            const stats = room.getRoomStats()
+            const analyst = room.getRoomAnalyst()
+            if(stats && analyst) {
+                statLines.push(`[${room.label}] Avg energy to pickup: ${stats.getAverageEnergyToPickup()}`)
+                energyValues.push(stats.getAverageEnergyToPickup() / analyst.getMiningSites().length)
+            }
+        }
+        const sum = energyValues.reduce((a, b) => a + b, 0)
+        statLines.unshift(
+            `${this.label} Avg energy to pickup: ${this.roomStats?.getAverageEnergyToPickup()}`,
+            `Remote rooms (avg: ${sum/energyValues.length}) :: ${sum} / ${energyValues.length} :: ${energyValues}`
+        )
+
+        statLines.forEach((line, index) => {
+            this.room.visual.text(line, 49, 0 + index, {
+                align: 'right',
+                stroke: 'black',
+                color: 'white'
+            })
+        })
+    }
+
     toString() {
-        return `[RoomManager ${this.memory.roomName}]`
+        return `[RoomManager ${this.memory.roomLabel}]`
     }
 }

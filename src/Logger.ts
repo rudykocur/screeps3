@@ -17,7 +17,7 @@ export class Logger {
     private enabledFor: LogLevel
 
     constructor(
-        private name?: string
+        name?: string
     ) {
         if(name) {
             this.enabledFor = Memory.config?.loggers[name] || LogLevel.DEBUG
@@ -25,6 +25,16 @@ export class Logger {
         else {
             this.enabledFor = LogLevel.DEBUG
         }
+    }
+
+    email(message: string, delay: number = 0) {
+        let fullMessage = `[${Game.time}] ${message}`
+
+        if(fullMessage.length > 996) {
+            fullMessage = fullMessage.substring(0, 995) + '...'
+        }
+
+        Game.notify(fullMessage, delay)
     }
 
     info(...args: any[]) {

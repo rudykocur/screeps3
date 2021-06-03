@@ -6,6 +6,7 @@ export interface ReservationChunk {
 
 export interface ReservationMemory {
     chunks: ReservationChunk[]
+    volatile?: boolean
 }
 
 export interface ReservableHandler {

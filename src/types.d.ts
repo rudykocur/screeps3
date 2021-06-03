@@ -38,6 +38,8 @@ type StructureWithEnergyStorage = StructureSpawn | StructureExtension | Structur
 type StructureWithGeneralStorage = StructureContainer | StructureStorage
 type WithdrawableStructureWithGeneralStorage = StructureWithGeneralStorage | Tombstone | Ruin
 
+type ReservableStructures = StructureWithGeneralStorage | StructureSpawn | Tombstone | Ruin | StructureExtension | StructureTower
+
 interface ConfigOptions {
     visualizeTaskTree?: boolean
     visualizeReservations?: boolean

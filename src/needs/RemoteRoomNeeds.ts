@@ -10,13 +10,19 @@ export class ReserveNeedProvider implements NeedsProvider {
     ) {}
 
     generate(): Need[] {
+        const controller = this.room.getController()
+
+        if(controller && (Game.reservationManager.getHandler(controller)?.getReservedAmount() || 0) > 0) {
+            return []
+        }
+
         return [
             new ReserveNeed(this.scheduler, this.room)
         ]
     }
 
     isActive(): boolean {
-        return true
+        return this.room.getNeedsReserver()
     }
 }
 
